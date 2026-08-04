@@ -1,0 +1,17 @@
+node_modules
+dist
+generated
+.git
+.env
+.env.*
+*.log
+npm-debug.log*
+coverage
+.vscode
+.idea
+*.md
+!README.md
+prisma/migrations
+.dockerignore
+Dockerfile*
+compose*.yaml

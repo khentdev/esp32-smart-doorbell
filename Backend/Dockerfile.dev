@@ -1,0 +1,11 @@
+FROM node:24-slim
+
+WORKDIR /usr/src/app
+
+COPY package.json package-lock.json ./
+RUN apt-get update -y && apt-get install -y openssl
+RUN npm install
+
+COPY . .
+
+CMD [ "sh","-c", "npm run db:dev && npm run dev" ]

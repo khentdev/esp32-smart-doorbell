@@ -1,0 +1,93 @@
+name: "esp32-smart-doorbell-project"
+
+services:
+  project-db:
+    image: postgres:18.1
+    restart: always
+    environment:
+      - POSTGRES_DB=smart-doorbell-db
+      - POSTGRES_USER=smart-doorbell-user
+      - POSTGRES_PASSWORD=smart-doorbell-password
+    ports:
+      - "5434:5432"
+    networks:
+      - prisma-dev-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U smart-doorbell-user -d smart-doorbell-db" ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+    volumes:
+      - postgres_data_esp32-smart-doorbell-project_dev:/var/lib/postgresql
+    command: postgres -c listen_addresses=*
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+  project-db-test:
+    image: postgres:18.1
+    restart: always
+    environment:
+      - POSTGRES_DB=smart-doorbell-db-test
+      - POSTGRES_USER=smart-doorbell-user
+      - POSTGRES_PASSWORD=smart-doorbell-password
+    ports:
+      - "5435:5432"
+    networks:
+      - prisma-dev-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U smart-doorbell-user -d smart-doorbell-db-test" ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+    volumes:
+      - postgres_data_esp32-smart-doorbell-project_test:/var/lib/postgresql
+    command: postgres -c listen_addresses=*
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  server:
+    depends_on:
+      project-db:
+        condition: service_healthy
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3003:3003"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: development
+    volumes:
+      - ./prisma:/usr/src/app/prisma
+      - ./prisma.config.ts:/usr/src/app/prisma.config.ts
+      - ./generated:/usr/src/app/generated
+    networks:
+      - prisma-dev-network
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+    develop:
+      watch:
+        - action: sync
+          path: ./src
+          target: "/usr/src/app/src"
+        - action: sync
+          path: ./tsconfig.json
+          target: /usr/src/app/tsconfig.json
+        - action: rebuild
+          path: ./package.json
+        - action: rebuild
+          path: ./Dockerfile.dev
+
+networks:
+  prisma-dev-network:
+volumes:
+  postgres_data_esp32-smart-doorbell-project_dev:
+  postgres_data_esp32-smart-doorbell-project_test:
