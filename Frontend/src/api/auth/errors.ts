@@ -1,0 +1,6 @@
+// Errors for the auth API
+
+export const AUTH_USERNAME_REQUIRED = "AUTH_USERNAME_REQUIRED"
+export const AUTH_PASSWORD_REQUIRED = "AUTH_PASSWORD_REQUIRED"
+
+export type AuthErrorCodes = typeof AUTH_USERNAME_REQUIRED | typeof AUTH_PASSWORD_REQUIRED

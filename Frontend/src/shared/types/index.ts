@@ -1,0 +1,1 @@
+export const getTypedResponse = <T>(res: unknown): T => res as T;

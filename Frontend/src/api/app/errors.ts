@@ -1,0 +1,1 @@
+// Errors for the app API (dashboard)
