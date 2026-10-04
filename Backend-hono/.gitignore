@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+.env.test
+.env.local
+.env.development
+.env.production
+/.alchemy
+/.prisma-composer

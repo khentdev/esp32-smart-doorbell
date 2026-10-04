@@ -1,0 +1,9 @@
+// use prisma-8
+
+model User {
+  id       Uuid @id @default(uuid())
+  username  String
+  hashedPassword String
+  createdAt TimestamptzString @default(now())
+  updatedAt temporal.updatedAtString()
+}

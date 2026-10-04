@@ -1,0 +1,63 @@
+{
+  "name": "my-hono-api",
+  "private": true,
+  "packageManager": "bun@1.4.1",
+  "type": "module",
+  "engines": {
+    "node": "^22.18.0 || >=24.11.0"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "composer:deploy": "prisma deploy module.ts",
+    "composer:dev": "prisma dev module.ts",
+    "contract:emit": "prisma contract emit",
+    "db:init": "prisma db init",
+    "db:update": "prisma db update",
+    "db:verify": "prisma db verify",
+    "deploy": "bun run build && bun run composer:deploy",
+    "dev": "bun --watch src/index.ts",
+    "pretest": "bun run test:db:up && bun run test:db:migrate",
+    "test": "bun test",
+    "test:db:up": "docker compose -f docker-compose.test.yml up -d --wait",
+    "test:db:migrate": "bun scripts/test-db-migrate.ts",
+    "test:db:down": "docker compose -f docker-compose.test.yml down -v",
+    "dev:composer": "bun run build && bun run composer:dev",
+    "migrate": "prisma db migrate",
+    "migration:plan": "prisma migration plan",
+    "migration:show": "prisma migration show",
+    "migration:status": "prisma migration status",
+    "skills:sync": "prisma skills sync || exit 0",
+    "start": "node dist/server.mjs",
+    "postinstall": "prisma skills sync || exit 0"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.19.9",
+    "@logtape/logtape": "^2.3.10",
+    "@logtape/pretty": "^2.3.10",
+    "@prisma/composer": "0.24.0",
+    "@prisma/composer-prisma-cloud": "0.24.0",
+    "@prisma/orm-postgres": "8.0.0-rc.12",
+    "alchemy": "2.0.0-beta.78",
+    "hono": "^4.12.2",
+    "temporal-polyfill": "^1.0.4",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@prisma/dev": "0.25.2",
+    "@types/bun": "^1.4.2",
+    "@types/node": "^25.6.2",
+    "prisma": "8.0.0-rc.18",
+    "tsdown": "^0.22.14",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  },
+  "overrides": {
+    "effect": "4.0.0-rc.115",
+    "@effect/platform-bun": "4.0.0-rc.115",
+    "@effect/platform-node": "4.0.0-rc.115",
+    "@effect/platform-node-shared": "4.0.0-rc.115",
+    "@effect/sql-d1": "4.0.0-rc.115",
+    "@effect/sql-sqlite-do": "4.0.0-rc.115",
+    "@effect/vitest": "4.0.0-rc.115"
+  }
+}
