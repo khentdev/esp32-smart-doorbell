@@ -1,9 +1,31 @@
 // use prisma-8
 
+enum AccessOutcome {
+  @@type("pg/text@1")
+  GRANTED = "GRANTED"
+  DENIED = "DENIED"
+  ADMIN_UNLOCK = "ADMIN_UNLOCK"
+}
+
 model User {
-  id       Uuid @id @default(uuid())
-  username  String
+  id             Uuid              @id @default(uuid())
+  username       String            @unique
   hashedPassword String
-  createdAt TimestamptzString @default(now())
-  updatedAt temporal.updatedAtString()
+  createdAt      TimestamptzString @default(now())
+  updatedAt      temporal.updatedAtString()
+}
+
+model AccessEvent {
+  id              Uuid              @id @default(uuid())
+  deviceId        String
+  outcome         AccessOutcome
+  fingerprintSlot Int?
+  timestamp       TimestamptzString @default(now())
+
+  @@index([timestamp])
+}
+
+model DeviceCommand {
+  deviceId        String             @id
+  pendingUnlockAt TimestamptzString?
 }

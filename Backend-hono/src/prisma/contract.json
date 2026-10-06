@@ -4,6 +4,14 @@
   "target": "postgres",
   "profileHash": "3916f444a8a17ad749191acf9e08dad97d1a327b88c2f1d45d12f240296aa8b2",
   "roots": {
+    "AccessEvent": {
+      "model": "AccessEvent",
+      "namespace": "public"
+    },
+    "DeviceCommand": {
+      "model": "DeviceCommand",
+      "namespace": "public"
+    },
     "User": {
       "model": "User",
       "namespace": "public"
@@ -12,7 +20,124 @@
   "domain": {
     "namespaces": {
       "public": {
+        "enum": {
+          "AccessOutcome": {
+            "codecId": "pg/text@1",
+            "members": [
+              {
+                "name": "GRANTED",
+                "value": "GRANTED"
+              },
+              {
+                "name": "DENIED",
+                "value": "DENIED"
+              },
+              {
+                "name": "ADMIN_UNLOCK",
+                "value": "ADMIN_UNLOCK"
+              }
+            ]
+          }
+        },
         "models": {
+          "AccessEvent": {
+            "fields": {
+              "deviceId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "fingerprintSlot": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "outcome": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                },
+                "valueSet": {
+                  "entityKind": "enum",
+                  "entityName": "AccessOutcome",
+                  "namespaceId": "public",
+                  "plane": "domain"
+                }
+              },
+              "timestamp": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {},
+            "storage": {
+              "fields": {
+                "deviceId": {
+                  "column": "deviceId"
+                },
+                "fingerprintSlot": {
+                  "column": "fingerprintSlot"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "outcome": {
+                  "column": "outcome"
+                },
+                "timestamp": {
+                  "column": "timestamp"
+                }
+              },
+              "namespaceId": "public",
+              "table": "AccessEvent"
+            }
+          },
+          "DeviceCommand": {
+            "fields": {
+              "deviceId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "pendingUnlockAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {},
+            "storage": {
+              "fields": {
+                "deviceId": {
+                  "column": "deviceId"
+                },
+                "pendingUnlockAt": {
+                  "column": "pendingUnlockAt"
+                }
+              },
+              "namespaceId": "public",
+              "table": "DeviceCommand"
+            }
+          },
           "User": {
             "fields": {
               "createdAt": {
@@ -83,6 +208,91 @@
       "public": {
         "entries": {
           "table": {
+            "AccessEvent": {
+              "checks": [
+                {
+                  "expression": "\"outcome\" IN ('GRANTED', 'DENIED', 'ADMIN_UNLOCK')",
+                  "name": "AccessEvent_outcome_check_87d356c0",
+                  "prefix": "AccessEvent_outcome_check"
+                }
+              ],
+              "columns": {
+                "deviceId": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "fingerprintSlot": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": true
+                },
+                "id": {
+                  "codecId": "pg/uuid@1",
+                  "nativeType": "uuid",
+                  "nullable": false
+                },
+                "outcome": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false,
+                  "valueSet": {
+                    "entityKind": "valueSet",
+                    "entityName": "AccessOutcome",
+                    "namespaceId": "public",
+                    "plane": "storage"
+                  }
+                },
+                "timestamp": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [],
+              "indexes": [
+                {
+                  "columns": [
+                    "timestamp"
+                  ],
+                  "name": "AccessEvent_timestamp_idx_a2429bb8",
+                  "prefix": "AccessEvent_timestamp_idx",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": []
+            },
+            "DeviceCommand": {
+              "columns": {
+                "deviceId": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "pendingUnlockAt": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "nativeType": "timestamptz",
+                  "nullable": true
+                }
+              },
+              "foreignKeys": [],
+              "indexes": [],
+              "primaryKey": {
+                "columns": [
+                  "deviceId"
+                ]
+              },
+              "uniques": []
+            },
             "User": {
               "columns": {
                 "createdAt": {
@@ -122,7 +332,23 @@
                   "id"
                 ]
               },
-              "uniques": []
+              "uniques": [
+                {
+                  "columns": [
+                    "username"
+                  ]
+                }
+              ]
+            }
+          },
+          "valueSet": {
+            "AccessOutcome": {
+              "kind": "valueSet",
+              "values": [
+                "GRANTED",
+                "DENIED",
+                "ADMIN_UNLOCK"
+              ]
             }
           }
         },
@@ -130,12 +356,23 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "a9226732d1e1d567fd297a6ae1ed464e533d04b7e57ca7d8dc57e8f23e642f5c"
+    "storageHash": "7c8d07660e22460959a0e2511bc6911622b2196e975433a43acfa713884f4a86"
   },
   "execution": {
-    "executionHash": "d3fb1fe1f99ca63f638a1245eac355c006fcaf30dea2bed8861b7ab173656d86",
+    "executionHash": "5010b03dc5bc4c4b71ec8e3ba84b7df2f3acd3ae3804b449e623d84d361014e8",
     "mutations": {
       "defaults": [
+        {
+          "onCreate": {
+            "id": "uuidv4",
+            "kind": "generator"
+          },
+          "ref": {
+            "column": "id",
+            "namespace": "public",
+            "table": "AccessEvent"
+          }
+        },
         {
           "onCreate": {
             "id": "uuidv4",
