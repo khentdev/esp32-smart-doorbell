@@ -69,13 +69,12 @@ type TokenPayload = {
   nonce: string     // random 8-char value so tokens issued in the same second differ
 }
 
-type LoginResponse = {
-  data: { user: { id: string; username: string } }
-  message: string
-}
-
 type SessionResponse = {
   user: { username: string }
+}
+
+type LoginResponse = SessionResponse & {
+  message: string
 }
 
 // Every error response (auth, session, validation, server) uses this envelope
@@ -134,10 +133,12 @@ REST endpoints use `authenticate` middleware. SSE uses a separate `authenticateS
 
 ```json
 {
-  "data": { "user": { "id": "uuid", "username": "admin" } },
+  "user": { "username": "admin" },
   "message": "Logged in successfully"
 }
 ```
+
+Same `user` shape as `GET /session/me`, plus `message`. The user `id` is not returned (it is only in the JWT `sub`).
 
 Sets `sid` (HTTP-only, signed) and `csrfToken` cookies. JWT includes `deviceHash = hash(fingerprint)`.
 
