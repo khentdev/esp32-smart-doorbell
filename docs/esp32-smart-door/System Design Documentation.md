@@ -42,13 +42,13 @@ See [[API & Database Reference]] for the database schema, endpoint list, request
 
 1. Admin clicks "Unlock Door" on the dashboard.
 2. Dashboard sends `POST /doorbell/unlock` with session cookie, `X-CSRF-Token`, and `X-Fingerprint` headers, body `{ "deviceId": "front_gate" }`.
-3. Backend sets `pendingUnlockAt = now()` for that device in the `deviceCommands` table and responds `202`.
-4. On its next poll (~3 second interval), ESP32 calls `GET /doorbell/commands?deviceId=front_gate` with `X-API-Key`. Backend sees `pendingUnlockAt` is set, clears it to `null` immediately (consumed, fire-and-forget), and returns `{ "command": "UNLOCK" }`.
+3. Backend upserts the device's `deviceCommands` row with `pendingUnlockAt = now()` and responds `202`.
+4. On its next poll (~3 second interval), ESP32 calls `GET /doorbell/commands?deviceId=front_gate` with `X-API-Key`. Backend atomically clears `pendingUnlockAt` to `null` (consumed, fire-and-forget). If the cleared value was set within the last `UNLOCK_COMMAND_TTL_SECONDS` (default 60) it returns `{ "command": "UNLOCK" }`; if it was older, the command is expired and it returns `{ "command": null }`.
 5. ESP32 runs the same actuator sequence as a fingerprint match (relay → solenoid release, servo open, hold, servo close, re-lock); OLED/buzzer/LED show an admin-unlock status.
 6. ESP32 reports the result via the same `POST /doorbell/access` endpoint with `"outcome": "ADMIN_UNLOCK"` (`fingerprintSlot` omitted).
 7. Backend persists and broadcasts it like any other access event; dashboard shows a toast styled for this outcome and counts it toward Granted Today.
 
-Delivery is fire-and-forget: if the ESP32 is offline or slow to poll, the request simply waits in `pendingUnlockAt` until the next successful poll — there is no retry or notification back to the admin that it's still pending beyond the eventual access event appearing.
+Delivery is fire-and-forget: if the ESP32 is slow to poll, the request waits in `pendingUnlockAt` for at most the TTL (60s by default). If the ESP32 is offline longer than that, the request expires and is discarded on the next poll — there is no retry or notification back to the admin, who simply clicks "Unlock Door" again.
 
 **Fingerprint enrollment (local, offline)**
 
@@ -66,7 +66,7 @@ Delivery is fire-and-forget: if the ESP32 is offline or slow to poll, the reques
 
 **SSE reconnect**
 
-1. If the SSE connection drops, the dashboard shows "Disconnected" and retries in the background.
+1. The server sends a `: ping` comment every 25 seconds so idle connections survive proxies. If the connection drops anyway, the dashboard shows "Disconnected" and retries in the background.
 2. On reconnect, the dashboard refetches `GET /dashboard/summary` to restore any access events missed during downtime.
 3. Missed events do not replay as toasts; they appear in stats and history only.
 
@@ -92,6 +92,9 @@ Delivery is fire-and-forget: if the ESP32 is offline or slow to poll, the reques
 | Admin unlock delivered via ESP32 polling, not a push/WebSocket channel | Keeps the ESP32's communication model symmetric — plain HTTP requests only, same as `/doorbell/access`. A persistent connection (WebSocket, reverse-SSE) would be new infrastructure for a feature that's used occasionally, not continuously. |
 | Pending unlock modeled as a single nullable timestamp per device, not a generic command queue | Only one command type exists today (`UNLOCK`). A queue/table of typed commands would be unused generality for a single-device MVP with no concurrent commands. |
 | Unlock command consumed at poll time, not at confirmed execution | Fire-and-forget, the same precedent as missed SSE events not being replayed. Acceptable risk for an occasional manual-override path at this MVP scale — if the ESP32 is mid-poll-cycle when it loses power, the admin can simply click "Unlock Door" again. |
+| Unlock command consumed atomically and expires after `UNLOCK_COMMAND_TTL_SECONDS` (60s) | The timestamp is already stored, so a TTL costs nothing. Without it, a click made while the ESP32 is offline would open the door unexpectedly whenever it reconnects. Atomic consume (single `UPDATE ... RETURNING`) stops overlapping polls from both receiving `UNLOCK`. |
+| No login rate limiting or lockout | The API is deployed privately and is not publicly exposed, with one admin account. Accepted MVP limitation; revisit before any public exposure. |
+| SSE `: ping` comment every 25s | Keeps idle connections from being dropped by reverse proxies; comments are invisible to `EventSource`, so no client code changes. |
 | ~3 second poll interval for `GET /doorbell/commands` | Balances perceived latency (a few seconds of delay is acceptable for a manual override) against request volume, which is negligible for a single device. |
 | `POST /doorbell/unlock` uses session + CSRF + fingerprint only, no re-confirmation | Consistent with how every other dashboard mutation is protected in this MVP. The session is already fingerprint-bound to the one trusted admin account — adding a password re-entry step would be a new auth pattern used nowhere else. |
 | `ADMIN_UNLOCK` counts toward Granted Today, no separate stat card | The door was physically opened either way. The history list's per-row `outcome` already distinguishes a manual unlock from a fingerprint match, so a 4th stat card would duplicate that distinction without adding information. |
@@ -139,6 +142,7 @@ This system is scoped as a single-user, single-device MVP, not a production or s
 - No multi-user management UI — MVP scope is 1–2 enrolled fingers (house owner, maybe one family member)
 - No automatic data retention/cleanup — `accessEvents` is never pruned; the 30-entry cap applies to the dashboard display only
 - No real-time push to the ESP32 — admin-unlock command delivery is poll-based with ~3s latency, not instant
+- No login rate limiting or lockout — acceptable only while the deployment stays private (not publicly exposed)
 
 ### 6. Auth Middleware
 

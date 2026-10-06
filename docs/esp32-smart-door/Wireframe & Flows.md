@@ -34,6 +34,7 @@
   - Toast auto-dismisses after a few seconds — no user action needed
 - SSE connects via `GET /doorbell/stream?fingerprint=<fingerprint>` (cookie sent automatically; this `fingerprint` is the browser fingerprint used for session binding, unrelated to the physical fingerprint scan that produced the event)
 - No debounce — every scan result (granted or denied) is saved and produces a toast; a denied attempt is security-relevant and must not be suppressed
+- Server sends a `: ping` heartbeat every 25s (invisible to the UI) to keep the connection alive
 - If SSE connection drops → "Disconnected" status shown in top bar, auto-reconnect attempted in background
 - On reconnect → refetch `GET /dashboard/summary`, restore "Live" status; missed events appear in stats/history only (no replay toasts)
 
@@ -52,7 +53,7 @@
   - On success → `202`, show a brief "Unlock requested" toast/status (the door hasn't opened yet at this point)
   - If session invalid → `401`, redirect to Login like any other authenticated action
 - A few seconds later (ESP32 polls on a ~3s interval), the resulting access event arrives through the normal SSE path (flow 3) with outcome **Admin Unlock**, styled distinctly from a fingerprint match, and the stat cards/history update exactly as they would for a granted fingerprint scan
-- There is no dashboard indicator for "still waiting on the device" beyond that eventual toast — if the ESP32 is offline, the request simply waits until it reconnects and polls
+- There is no dashboard indicator for "still waiting on the device" beyond that eventual toast — if the ESP32 is offline, the request waits up to 60 seconds, then expires silently (it is never executed late); the admin can click "Unlock Door" again
 
 ## Settings
 

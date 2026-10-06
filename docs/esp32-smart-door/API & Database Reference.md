@@ -1,6 +1,6 @@
 ## API & Database Reference
 
-Source of truth for the database schema, shared types, endpoint list, request/response bodies, and route protection rules. Mirror shared types as TypeScript in the backend and frontend (e.g. `Backend/src/types/api.ts`, `Frontend/src/types/api.ts`). Keep code in sync with this doc when the contract changes.
+Source of truth for the database schema, shared types, endpoint list, request/response bodies, and route protection rules. Mirror shared types as TypeScript in the backend and frontend (e.g. `Backend-hono/src/types/api.ts`, `Frontend/src/types/api.ts`). Keep code in sync with this doc when the contract changes.
 
 **Naming:** Database columns, API JSON bodies, and shared TypeScript types all use **camelCase**.
 
@@ -32,6 +32,9 @@ deviceCommands
 - No `acknowledged` fields — history is a log, not a task list.
 - No `fingerprints` table — biometric templates live on the sensor's own onboard flash, not in PostgreSQL. `fingerprintSlot` is just the sensor's slot number, recorded for reference only.
 - `deviceCommands` is a single row per device, not a generic command queue — only one command type (`UNLOCK`) exists today.
+- The `deviceCommands` row is created lazily: `POST /doorbell/unlock` upserts it on the first unlock request for a configured `deviceId` (no startup seeding). `deviceId` is validated against the device label map before any write.
+- Index `accessEvents.timestamp` — it backs both the "today" counts and the last-30 `recentHistory` query.
+- Fingerprint enrollment has no table, endpoint, or event — it is local to the device (see §6.10).
 
 ### 2. Shared Types
 
@@ -276,7 +279,7 @@ Logout goes through `authenticate`, so an already-expired session returns `401 T
 { "status": "UNLOCK_REQUESTED" }
 ```
 
-Sets `pendingUnlockAt = now()` on the device's `deviceCommands` row. Does not wait for the ESP32 to act — the resulting `ADMIN_UNLOCK` access event arrives later via SSE once the ESP32 polls and executes it.
+Upserts the device's `deviceCommands` row with `pendingUnlockAt = now()`. Does not wait for the ESP32 to act — the resulting `ADMIN_UNLOCK` access event arrives later via SSE once the ESP32 polls and executes it.
 
 **Response `401`**
 
@@ -302,7 +305,11 @@ or, when nothing is pending:
 { "command": null }
 ```
 
-If `pendingUnlockAt` is set for the device, the backend clears it to `null` as part of this request (consumed, fire-and-forget — no retry if the ESP32 fails to act on it) and returns `"UNLOCK"`.
+The backend consumes the command in a **single atomic statement** (e.g. `UPDATE "deviceCommands" SET "pendingUnlockAt" = NULL WHERE "deviceId" = $1 AND "pendingUnlockAt" IS NOT NULL RETURNING` the previous value — or the Prisma equivalent), never a separate read then write. Two overlapping polls therefore can never both receive `"UNLOCK"`.
+
+- If the consumed `pendingUnlockAt` is within `UNLOCK_COMMAND_TTL_SECONDS` (default `60`) of now, the backend returns `"UNLOCK"`.
+- If it is older than the TTL, it is still cleared but treated as expired: the response is `{ "command": null }`. This prevents a stale request from opening the door when an offline ESP32 reconnects much later.
+- Consumption is fire-and-forget — no retry if the ESP32 fails to act on it.
 
 **Response `401`** — invalid or missing API key.
 
@@ -323,6 +330,10 @@ data: {"id":"uuid","deviceId":"front_gate","deviceLabel":"Front Gate","outcome":
 
 SSE payload shape matches `AccessEvent`.
 
+**Heartbeat:** the server writes a comment line (`: ping\n\n`) every **25 seconds** so idle connections are not dropped by proxies or load balancers. Comments are ignored by `EventSource`, so the client sees no event. Responses use `Content-Type: text/event-stream`, `Cache-Control: no-cache`, and `X-Accel-Buffering: no`; disable response compression/buffering on this route at the reverse proxy.
+
+**Reconnect:** no event IDs and no replay — a missed event is never re-sent. The browser's `EventSource` reconnects automatically; on reconnect the dashboard refetches `GET /dashboard/summary` to catch up (missed events appear in stats/history only, no toasts).
+
 ### 6. Security Requirements
 
 #### 6.1 Session cookies
@@ -338,6 +349,7 @@ CSRF protection: `X-CSRF-Token` header must match the `csrfToken` cookie on all 
 
 - Use generic `"Invalid username or password"` — do not reveal whether the username exists.
 - Seeded admin password must meet a minimum strength requirement at setup (document in deployment README).
+- **No rate limiting or lockout on `POST /auth/login`.** Known MVP limitation: the API is deployed privately (not exposed publicly) with a single admin account, so brute-force exposure is limited to the private network. Revisit (e.g. Hono rate-limit middleware) before any public exposure.
 
 #### 6.3 Device fingerprint
 
@@ -366,8 +378,9 @@ CSRF protection: `X-CSRF-Token` header must match the `csrfToken` cookie on all 
 #### 6.6 Admin unlock delivery
 
 - `POST /doorbell/unlock` bypasses fingerprint matching entirely, so it is gated by the full dashboard session stack (signed `sid` cookie, CSRF, fingerprint binding) — the same protection as every other dashboard mutation. No additional re-confirmation step (e.g. password re-entry) is required.
-- Command delivery is **fire-and-forget**: `pendingUnlockAt` is cleared the moment `GET /doorbell/commands` is polled, regardless of whether the ESP32 successfully completes the physical unlock afterward. There is no retry, no delivery confirmation back to the admin, and no queueing of multiple pending unlocks — a second click while one is already pending just resets the same timestamp.
-- Known MVP limitation: if the ESP32 is offline or mid-poll-cycle when it loses power right after consuming the command, the unlock is silently lost with no error surfaced to the dashboard. Acceptable for this single-device school project; the admin can simply click "Unlock Door" again.
+- Command delivery is **fire-and-forget**: `pendingUnlockAt` is cleared atomically the moment `GET /doorbell/commands` is polled, regardless of whether the ESP32 successfully completes the physical unlock afterward. There is no retry, no delivery confirmation back to the admin, and no queueing of multiple pending unlocks — a second click while one is already pending just resets the same timestamp.
+- **Commands expire.** A pending unlock older than `UNLOCK_COMMAND_TTL_SECONDS` (default 60) is discarded when polled instead of executed, so an ESP32 that was offline cannot open the door on reconnect long after the admin's click. The admin sees nothing and simply clicks "Unlock Door" again.
+- Known MVP limitation: if the ESP32 is offline, or loses power right after consuming the command, the unlock is silently lost with no error surfaced to the dashboard. Acceptable for this single-device school project.
 
 #### 6.7 SSE fingerprint in query string
 
@@ -396,5 +409,16 @@ Fingerprint in the SSE URL increases exposure via server logs and browser histor
 #### 6.9 Error response envelope
 
 All errors use the `ApiError` shape from §2: `{ "error": { "code", "message", "field?", "data?", "issues?" } }`. The frontend switches on `error.code`. Only `VALIDATION_ERROR` includes `issues`, as `[{ "path": "username", "message": "..." }]`. Unmatched routes return `404 NOT_FOUND` in the same envelope.
+
+#### 6.10 Fingerprint enrollment (outside the API)
+
+Enrolling a finger is a **local, offline** operation on the device and has no API surface:
+
+- The owner connects a laptop to the ESP32 over USB-serial, physically present, and runs the enrollment routine in the firmware. It scans the same finger twice, merges the scans into one template, and stores it in a numbered slot on the sensor's onboard flash (e.g. `storeModel(slot)` in the Adafruit_Fingerprint library). The OLED shows the prompts; the buzzer/LEDs confirm the result.
+- No endpoint, no `accessEvents` row, no SSE event, and no database write — enrollment is not an access attempt.
+- The backend only ever learns a slot number later, as `fingerprintSlot` on a `GRANTED` event. Mapping slots to people is kept by the owner offline.
+- Because enrollment needs USB-serial access, physical custody of the device is the control; there is no remote enrollment path.
+
+See [[System Documentation#5. Fingerprint Enrollment]].
 
 **Related Docs: [[System Documentation]] & [[System Design Documentation]] & [[Wireframe & Flows]]**

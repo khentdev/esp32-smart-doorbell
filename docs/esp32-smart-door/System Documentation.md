@@ -66,6 +66,7 @@
 - No debounce — unlike a mashed button, a denied fingerprint scan followed by an immediate retry is normal legitimate behavior (the sensor's false-reject rate is under 1%), so every scan result is recorded and shown
 - Device labels (e.g. `front_gate` → "Front Gate") come from a static map in backend config
 - SSE uses a separate auth path (cookie + fingerprint query param); Vue dashboard sets `Referrer-Policy: no-referrer` in `index.html` (frontend only — not the API backend); reverse proxy must not log query strings on `/doorbell/stream`
+- The server sends an SSE heartbeat comment every 25 seconds to keep idle connections alive through proxies
 - SSE reconnects automatically if connection drops (e.g. WiFi hiccup, tab backgrounded); on reconnect the dashboard refetches `GET /dashboard/summary` to catch up on missed events
 
 #### 3. Notification Sound Settings
@@ -133,6 +134,8 @@
 - Protected by the same session + CSRF + fingerprint auth as every other dashboard mutation — no new auth pattern introduced for this action
 - Clicking the button doesn't unlock instantly: it sets a pending-unlock flag that the ESP32 picks up on its next poll (~3 second interval), so there's a brief delay before the door actually opens
 - Delivery is fire-and-forget: there is only one pending-unlock slot per device, and it's cleared the moment the ESP32 polls it, regardless of whether the physical unlock actually succeeds
+- A pending unlock expires after 60 seconds (`UNLOCK_COMMAND_TTL_SECONDS`): if the ESP32 was offline and polls later than that, the request is discarded rather than opening the door, and the admin clicks "Unlock Door" again
+- Login has no rate limiting or lockout — an accepted limitation because the system is deployed privately and not exposed publicly
 - Reported back to the backend via the same `POST /doorbell/access` endpoint as a fingerprint scan, with outcome `"ADMIN_UNLOCK"` — it appears in history and counts toward Granted Today like any other successful access
 
 **Related Docs: [[Wireframe & Flows]] & [[System Design Documentation]] & [[API & Database Reference]]**

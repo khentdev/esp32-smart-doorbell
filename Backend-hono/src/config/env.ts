@@ -13,8 +13,8 @@ export const env = {
   ADMIN_PASSWORD: loadEnvVar("ADMIN_PASSWORD", "admin123"),
 
   DOMAIN_NAME: loadEnvVar("DOMAIN", "localhost"),
-  FRONTEND_PROD_URL: loadEnvVar("FRONTEND_PROD_URL"),
-  FRONTEND_DEV_URL: loadEnvVar("FRONTEND_DEV_URL"),
+  FRONTEND_PROD_URL: loadEnvVar("FRONTEND_PROD_URL", "your-frontend-prod-url"),
+  FRONTEND_DEV_URL: loadEnvVar("FRONTEND_DEV_URL", "http://localhost:3001"),
 
   JWT_SECRET: loadEnvVar("JWT_SECRET", "your-512-secret-length"),
   JWT_REFRESH_TOKEN_EXPIRES_IN: loadEnvVar(
