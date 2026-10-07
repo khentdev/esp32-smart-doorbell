@@ -40,7 +40,6 @@ export async function loginService({
     sessionToken,
     csrfToken,
     user: {
-      id: user.id,
       username: user.username,
     },
   };
