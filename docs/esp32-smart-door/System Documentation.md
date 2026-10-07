@@ -2,7 +2,7 @@
 
 |Field|Details|
 |---|---|
-|**Project Name**|Smart Doorbell|
+|**Project Name**|Smart Door Lock|
 |**Type**|Web Application|
 |**Purpose**|To control physical entry via fingerprint access and notify the owner of every access attempt|
 |**Target Users**|House owner \| Single User|
@@ -65,7 +65,7 @@
 - Each accepted event fires its own toast + sound, in order received
 - No debounce — unlike a mashed button, a denied fingerprint scan followed by an immediate retry is normal legitimate behavior (the sensor's false-reject rate is under 1%), so every scan result is recorded and shown
 - Device labels (e.g. `front_gate` → "Front Gate") come from a static map in backend config
-- SSE uses a separate auth path (cookie + fingerprint query param); Vue dashboard sets `Referrer-Policy: no-referrer` in `index.html` (frontend only — not the API backend); reverse proxy must not log query strings on `/doorbell/stream`
+- SSE uses a separate auth path (cookie + fingerprint query param); Vue dashboard sets `Referrer-Policy: no-referrer` in `index.html` (frontend only — not the API backend); reverse proxy must not log query strings on `/door/stream`
 - The server sends an SSE heartbeat comment every 25 seconds to keep idle connections alive through proxies
 - SSE reconnects automatically if connection drops (e.g. WiFi hiccup, tab backgrounded); on reconnect the dashboard refetches `GET /dashboard/summary` to catch up on missed events
 
@@ -100,8 +100,8 @@
 
 - ESP32 authenticates with `X-API-Key` header; HTTPS required in production
 - API key compared with constant-time equality; stored in server environment only
-- Single shared key is an accepted limitation for this single-device school project (see [[API & Database Reference#6.5 Doorbell API key (`POST /doorbell/access`)]]); no debounce is needed since there is no held-button failure mode to guard against
-- The same API key authenticates both `POST /doorbell/access` (reporting an event) and `GET /doorbell/commands` (polling for a pending unlock)
+- Single shared key is an accepted limitation for this single-device school project (see [[API & Database Reference#6.5 Device API key (`POST /door/access`)]]); no debounce is needed since there is no held-button failure mode to guard against
+- The same API key authenticates both `POST /door/access` (reporting an event) and `GET /door/commands` (polling for a pending unlock)
 - Note: the fingerprint scanned here is the physical biometric sensor on the door hardware — unrelated to the browser/device fingerprint used for dashboard session binding in §0/§1
 
 #### 5. Fingerprint Enrollment
@@ -136,6 +136,6 @@
 - Delivery is fire-and-forget: there is only one pending-unlock slot per device, and it's cleared the moment the ESP32 polls it, regardless of whether the physical unlock actually succeeds
 - A pending unlock expires after 60 seconds (`UNLOCK_COMMAND_TTL_SECONDS`): if the ESP32 was offline and polls later than that, the request is discarded rather than opening the door, and the admin clicks "Unlock Door" again
 - Login has no rate limiting or lockout — an accepted limitation because the system is deployed privately and not exposed publicly
-- Reported back to the backend via the same `POST /doorbell/access` endpoint as a fingerprint scan, with outcome `"ADMIN_UNLOCK"` — it appears in history and counts toward Granted Today like any other successful access
+- Reported back to the backend via the same `POST /door/access` endpoint as a fingerprint scan, with outcome `"ADMIN_UNLOCK"` — it appears in history and counts toward Granted Today like any other successful access
 
 **Related Docs: [[Wireframe & Flows]] & [[System Design Documentation]] & [[API & Database Reference]]**

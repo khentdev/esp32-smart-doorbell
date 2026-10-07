@@ -32,7 +32,7 @@
   - Toast appears with device label, outcome, and absolute datetime (user's local timezone), styled differently for granted vs denied
   - Sound plays simultaneously (default preset: **chime**, unless user saved a different preference)
   - Toast auto-dismisses after a few seconds — no user action needed
-- SSE connects via `GET /doorbell/stream?fingerprint=<fingerprint>` (cookie sent automatically; this `fingerprint` is the browser fingerprint used for session binding, unrelated to the physical fingerprint scan that produced the event)
+- SSE connects via `GET /door/stream?fingerprint=<fingerprint>` (cookie sent automatically; this `fingerprint` is the browser fingerprint used for session binding, unrelated to the physical fingerprint scan that produced the event)
 - No debounce — every scan result (granted or denied) is saved and produces a toast; a denied attempt is security-relevant and must not be suppressed
 - Server sends a `: ping` heartbeat every 25s (invisible to the UI) to keep the connection alive
 - If SSE connection drops → "Disconnected" status shown in top bar, auto-reconnect attempted in background
@@ -49,7 +49,7 @@
 ### 5. Admin Manual Unlock
 
 - Admin clicks "Unlock Door" in the top bar — available any time the dashboard is loaded, no confirmation dialog
-- Client calls `POST /doorbell/unlock` with `X-CSRF-Token` + `X-Fingerprint` headers
+- Client calls `POST /door/unlock` with `X-CSRF-Token` + `X-Fingerprint` headers
   - On success → `202`, show a brief "Unlock requested" toast/status (the door hasn't opened yet at this point)
   - If session invalid → `401`, redirect to Login like any other authenticated action
 - A few seconds later (ESP32 polls on a ~3s interval), the resulting access event arrives through the normal SSE path (flow 3) with outcome **Admin Unlock**, styled distinctly from a fingerprint match, and the stat cards/history update exactly as they would for a granted fingerprint scan

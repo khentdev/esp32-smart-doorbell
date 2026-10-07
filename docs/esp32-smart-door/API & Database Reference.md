@@ -32,7 +32,7 @@ deviceCommands
 - No `acknowledged` fields — history is a log, not a task list.
 - No `fingerprints` table — biometric templates live on the sensor's own onboard flash, not in PostgreSQL. `fingerprintSlot` is just the sensor's slot number, recorded for reference only.
 - `deviceCommands` is a single row per device, not a generic command queue — only one command type (`UNLOCK`) exists today.
-- The `deviceCommands` row is created lazily: `POST /doorbell/unlock` upserts it on the first unlock request for a configured `deviceId` (no startup seeding). `deviceId` is validated against the device label map before any write.
+- The `deviceCommands` row is created lazily: `POST /door/unlock` upserts it on the first unlock request for a configured `deviceId` (no startup seeding). `deviceId` is validated against the device label map before any write.
 - Index `accessEvents.timestamp` — it backs both the "today" counts and the last-30 `recentHistory` query.
 - Fingerprint enrollment has no table, endpoint, or event — it is local to the device (see §6.10).
 
@@ -96,11 +96,11 @@ type ApiError = {
 | POST | `/auth/login` | Public + fingerprint header | Validate credentials, issue session |
 | GET | `/session/me` | Session + CSRF + fingerprint | Validate/rotate current session |
 | DELETE | `/session/logout` | Session + CSRF + fingerprint | Clear session cookies |
-| POST | `/doorbell/access` | API key | ESP32 reports a fingerprint access attempt (granted or denied) |
+| POST | `/door/access` | API key | ESP32 reports a fingerprint access attempt (granted or denied) |
 | GET | `/dashboard/summary` | Session + CSRF + fingerprint | Initial load: stats + last 30 history entries |
-| GET | `/doorbell/stream` | Session cookie + fingerprint query | SSE stream of live access events |
-| POST | `/doorbell/unlock` | Session + CSRF + fingerprint | Admin requests a manual unlock, independent of fingerprint match |
-| GET | `/doorbell/commands` | API key | ESP32 polls for a pending manual-unlock command |
+| GET | `/door/stream` | Session cookie + fingerprint query | SSE stream of live access events |
+| POST | `/door/unlock` | Session + CSRF + fingerprint | Admin requests a manual unlock, independent of fingerprint match |
+| GET | `/door/commands` | API key | ESP32 polls for a pending manual-unlock command |
 
 ### 4. Route Protection
 
@@ -109,11 +109,11 @@ type ApiError = {
 | `POST /auth/login` | — | — | header (required) | — |
 | `GET /session/me` | required | required | header | — |
 | `DELETE /session/logout` | required | required | header | — |
-| `POST /doorbell/access` | — | — | — | required |
+| `POST /door/access` | — | — | — | required |
 | `GET /dashboard/summary` | required | required | header | — |
-| `GET /doorbell/stream` | required | — | query param | — |
-| `POST /doorbell/unlock` | required | required | header | — |
-| `GET /doorbell/commands` | — | — | — | required |
+| `GET /door/stream` | required | — | query param | — |
+| `POST /door/unlock` | required | required | header | — |
+| `GET /door/commands` | — | — | — | required |
 
 REST endpoints use `authenticate` middleware. SSE uses a separate `authenticateSse` middleware (see [[System Design Documentation#6. Auth Middleware]]).
 
@@ -207,7 +207,7 @@ Clears **both** `sid` and `csrfToken` cookies.
 
 Logout goes through `authenticate`, so an already-expired session returns `401 TOKEN_EXPIRED` instead. The frontend should clear its local auth state either way.
 
-#### `POST /doorbell/access`
+#### `POST /door/access`
 
 **Headers:** `X-API-Key: <shared-secret>`
 
@@ -219,7 +219,7 @@ Logout goes through `authenticate`, so an already-expired session returns `401 T
 { "deviceId": "front_gate", "outcome": "GRANTED", "fingerprintSlot": 1 }
 ```
 
-`outcome` is `"GRANTED"`, `"DENIED"`, or `"ADMIN_UNLOCK"` (the last one reported after the ESP32 executes a pending command from `GET /doorbell/commands`). `fingerprintSlot` must be present when `outcome` is `"GRANTED"` and omitted/null for `"DENIED"` or `"ADMIN_UNLOCK"`.
+`outcome` is `"GRANTED"`, `"DENIED"`, or `"ADMIN_UNLOCK"` (the last one reported after the ESP32 executes a pending command from `GET /door/commands`). `fingerprintSlot` must be present when `outcome` is `"GRANTED"` and omitted/null for `"DENIED"` or `"ADMIN_UNLOCK"`.
 
 **Response `201`** — access event accepted
 
@@ -264,7 +264,7 @@ Logout goes through `authenticate`, so an already-expired session returns `401 T
 
 `accessGrantedToday` / `accessDeniedToday` count events whose UTC timestamp falls on the current UTC calendar day, split by `outcome`; `accessGrantedToday` includes `"ADMIN_UNLOCK"` events.
 
-#### `POST /doorbell/unlock`
+#### `POST /door/unlock`
 
 **Headers:** `X-CSRF-Token`, `X-Fingerprint`
 
@@ -290,7 +290,7 @@ Upserts the device's `deviceCommands` row with `pendingUnlockAt = now()`. Does n
 
 **Response `400`** — unknown `deviceId`.
 
-#### `GET /doorbell/commands?deviceId=front_gate`
+#### `GET /door/commands?deviceId=front_gate`
 
 **Headers:** `X-API-Key: <shared-secret>`
 
@@ -316,7 +316,7 @@ The backend consumes the command in a **single atomic statement** (e.g. `UPDATE 
 
 **Response `400`** — unknown `deviceId`.
 
-#### `GET /doorbell/stream?fingerprint=<fingerprint>`
+#### `GET /door/stream?fingerprint=<fingerprint>`
 
 **Auth:** session cookie (`sid`) sent automatically by the browser; `fingerprint` query param carries the device fingerprint (since `EventSource` cannot send `X-Fingerprint`). Validated by `authenticateSse` — same hash compare as REST, **no CSRF** on this read-only GET. Note: this `fingerprint` is the browser fingerprint used for session binding, unrelated to the physical fingerprint sensor on the door hardware.
 
@@ -344,7 +344,7 @@ SSE payload shape matches `AccessEvent`.
 | `sid` | HTTP-only, signed, `SameSite=Lax`, `path=/`, 30-day `Max-Age`. In production: `Secure`, `__Secure-` name prefix, `Domain=<DOMAIN>` |
 | `csrfToken` | readable by JS (for double-submit), `SameSite=Lax`, `path=/`, 30-day `Max-Age`. In production: `Secure`, `Domain=<DOMAIN>` (no name prefix) |
 
-CSRF protection: `X-CSRF-Token` header must match the `csrfToken` cookie on all authenticated REST requests (`GET /session/me`, `DELETE /session/logout`, and the mutating dashboard/doorbell routes).
+CSRF protection: `X-CSRF-Token` header must match the `csrfToken` cookie on all authenticated REST requests (`GET /session/me`, `DELETE /session/logout`, and the mutating dashboard/door routes).
 
 #### 6.2 Login protection
 
@@ -368,18 +368,18 @@ CSRF protection: `X-CSRF-Token` header must match the `csrfToken` cookie on all 
 - Rotation is stateless: there is no lock, so concurrent requests near expiry may each receive a new valid token.
 - Logout clears cookies client-side; no server-side token blacklist.
 
-#### 6.5 Doorbell API key (`POST /doorbell/access`)
+#### 6.5 Device API key (`POST /door/access`)
 
-- API key stored in server env (`DOORBELL_API_KEY`), never in client code.
+- API key stored in server env (`DEVICE_API_KEY`), never in client code.
 - Compare keys with **constant-time** equality.
 - **HTTPS required** in production — ESP32 must use TLS.
 - **Known MVP limitation:** a single shared key can assert any configured `deviceId` and `outcome`. Acceptable for this single-device school project; HTTPS and physical custody of the device are the controls — there is no debounce or rate limit on this endpoint.
-- `GET /doorbell/commands` reuses this same API key control — no separate auth mechanism for command polling.
+- `GET /door/commands` reuses this same API key control — no separate auth mechanism for command polling.
 
 #### 6.6 Admin unlock delivery
 
-- `POST /doorbell/unlock` bypasses fingerprint matching entirely, so it is gated by the full dashboard session stack (signed `sid` cookie, CSRF, fingerprint binding) — the same protection as every other dashboard mutation. No additional re-confirmation step (e.g. password re-entry) is required.
-- Command delivery is **fire-and-forget**: `pendingUnlockAt` is cleared atomically the moment `GET /doorbell/commands` is polled, regardless of whether the ESP32 successfully completes the physical unlock afterward. There is no retry, no delivery confirmation back to the admin, and no queueing of multiple pending unlocks — a second click while one is already pending just resets the same timestamp.
+- `POST /door/unlock` bypasses fingerprint matching entirely, so it is gated by the full dashboard session stack (signed `sid` cookie, CSRF, fingerprint binding) — the same protection as every other dashboard mutation. No additional re-confirmation step (e.g. password re-entry) is required.
+- Command delivery is **fire-and-forget**: `pendingUnlockAt` is cleared atomically the moment `GET /door/commands` is polled, regardless of whether the ESP32 successfully completes the physical unlock afterward. There is no retry, no delivery confirmation back to the admin, and no queueing of multiple pending unlocks — a second click while one is already pending just resets the same timestamp.
 - **Commands expire.** A pending unlock older than `UNLOCK_COMMAND_TTL_SECONDS` (default 60) is discarded when polled instead of executed, so an ESP32 that was offline cannot open the door on reconnect long after the admin's click. The admin sees nothing and simply clicks "Unlock Door" again.
 - Known MVP limitation: if the ESP32 is offline, or loses power right after consuming the command, the unlock is silently lost with no error surfaced to the dashboard. Acceptable for this single-device school project.
 
@@ -387,7 +387,7 @@ CSRF protection: `X-CSRF-Token` header must match the `csrfToken` cookie on all 
 
 Fingerprint in the SSE URL increases exposure via server logs and browser history. Required mitigations:
 
-- **Do not log query strings** for `/doorbell/stream` on the reverse proxy / API server (primary control for fingerprint leakage).
+- **Do not log query strings** for `/door/stream` on the reverse proxy / API server (primary control for fingerprint leakage).
 - **Frontend `Referrer-Policy: no-referrer`** — set on the Vue dashboard only, **not** on Hono API responses. Tells the browser not to send a `Referer` header when the user navigates away from the dashboard to an external site. Set via `<meta name="referrer" content="no-referrer">` in `index.html`, or as an HTTP response header on the static host serving the SPA (Vite dev server, nginx, Netlify, etc.).
 - `SameSite=Lax` on `sid` prevents cross-site sites from opening a credentialed `EventSource` to the API.
 - CSRF is intentionally omitted on this read-only GET; cookie + fingerprint binding is the control.

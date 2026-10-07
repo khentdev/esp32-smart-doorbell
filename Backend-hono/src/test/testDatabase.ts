@@ -1,5 +1,5 @@
 const DEFAULT_URL =
-  "postgres://doorbell_test:doorbell_test@localhost:5433/doorbell_test";
+  "postgres://door_test:door_test@localhost:5433/door_test";
 
 /** URL of the isolated test database (docker-compose.test.yml unless overridden for CI). */
 export function getTestDatabaseUrl(): string {

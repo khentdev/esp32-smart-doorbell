@@ -3,15 +3,15 @@ services:
   postgres-test:
     image: postgres:17-alpine
     environment:
-      POSTGRES_USER: doorbell_test
-      POSTGRES_PASSWORD: doorbell_test
-      POSTGRES_DB: doorbell_test
+      POSTGRES_USER: door_test
+      POSTGRES_PASSWORD: door_test
+      POSTGRES_DB: door_test
     ports:
       - "5433:5432"
     tmpfs:
       - /var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U doorbell_test -d doorbell_test"]
+      test: ["CMD-SHELL", "pg_isready -U door_test -d door_test"]
       interval: 1s
       timeout: 3s
       retries: 30

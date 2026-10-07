@@ -8,13 +8,13 @@
                                    |----GPIO----> [Relay] --12V (separate supply)--> [Solenoid Lock]
                                    |----PWM (direct)-----------------------------> [MG996R Servo]
                                    |
-                                   |  POST /doorbell/access (API key) -------\
-                                   |  GET  /doorbell/commands (API key, poll ~3s) <---\
+                                   |  POST /door/access (API key) -------\
+                                   |  GET  /door/commands (API key, poll ~3s) <---\
                                    v                                                   |
                               [Hono Backend] ---- Prisma ---- [PostgreSQL]             |
                                    |                    ^                              |
                                    | SSE (broadcast on new access event)               |
-                                   v                    | POST /doorbell/unlock        |
+                                   v                    | POST /door/unlock        |
                               [Vue Dashboard] -----------(session + CSRF)--------------/
 ```
 
@@ -34,18 +34,18 @@ See [[API & Database Reference]] for the database schema, endpoint list, request
 2. ESP32 reads the match/no-match result over UART from the sensor.
 3. **Match:** ESP32 triggers the relay → solenoid releases; after the lock fully releases, the servo swings the door open; after a hold period, the servo closes the door and the solenoid re-locks. OLED/buzzer/LED show "Access granted" throughout.
 4. **No match:** no physical actuation occurs. OLED/buzzer/LED show "Access denied".
-5. Either way, ESP32 sends `POST /doorbell/access` over HTTPS with `X-API-Key` and body `{ "deviceId": "front_gate", "outcome": "GRANTED" | "DENIED", "fingerprintSlot": <number | omitted> }` (`fingerprintSlot` present only when `outcome` is `GRANTED`).
+5. Either way, ESP32 sends `POST /door/access` over HTTPS with `X-API-Key` and body `{ "deviceId": "front_gate", "outcome": "GRANTED" | "DENIED", "fingerprintSlot": <number | omitted> }` (`fingerprintSlot` present only when `outcome` is `GRANTED`).
 6. Backend validates the API key (constant-time compare), generates the timestamp server-side (UTC), inserts a row into the `accessEvents` table, resolves `deviceLabel` from the static config map, and broadcasts the event to all connected SSE clients. No debounce step — every scan result is recorded.
 7. Dashboard receives the SSE event, shows a toast styled by outcome (with sound), updates stat cards, and prepends the entry to the history list.
 
 **Admin manual unlock (dashboard → hardware)**
 
 1. Admin clicks "Unlock Door" on the dashboard.
-2. Dashboard sends `POST /doorbell/unlock` with session cookie, `X-CSRF-Token`, and `X-Fingerprint` headers, body `{ "deviceId": "front_gate" }`.
+2. Dashboard sends `POST /door/unlock` with session cookie, `X-CSRF-Token`, and `X-Fingerprint` headers, body `{ "deviceId": "front_gate" }`.
 3. Backend upserts the device's `deviceCommands` row with `pendingUnlockAt = now()` and responds `202`.
-4. On its next poll (~3 second interval), ESP32 calls `GET /doorbell/commands?deviceId=front_gate` with `X-API-Key`. Backend atomically clears `pendingUnlockAt` to `null` (consumed, fire-and-forget). If the cleared value was set within the last `UNLOCK_COMMAND_TTL_SECONDS` (default 60) it returns `{ "command": "UNLOCK" }`; if it was older, the command is expired and it returns `{ "command": null }`.
+4. On its next poll (~3 second interval), ESP32 calls `GET /door/commands?deviceId=front_gate` with `X-API-Key`. Backend atomically clears `pendingUnlockAt` to `null` (consumed, fire-and-forget). If the cleared value was set within the last `UNLOCK_COMMAND_TTL_SECONDS` (default 60) it returns `{ "command": "UNLOCK" }`; if it was older, the command is expired and it returns `{ "command": null }`.
 5. ESP32 runs the same actuator sequence as a fingerprint match (relay → solenoid release, servo open, hold, servo close, re-lock); OLED/buzzer/LED show an admin-unlock status.
-6. ESP32 reports the result via the same `POST /doorbell/access` endpoint with `"outcome": "ADMIN_UNLOCK"` (`fingerprintSlot` omitted).
+6. ESP32 reports the result via the same `POST /door/access` endpoint with `"outcome": "ADMIN_UNLOCK"` (`fingerprintSlot` omitted).
 7. Backend persists and broadcasts it like any other access event; dashboard shows a toast styled for this outcome and counts it toward Granted Today.
 
 Delivery is fire-and-forget: if the ESP32 is slow to poll, the request waits in `pendingUnlockAt` for at most the TTL (60s by default). If the ESP32 is offline longer than that, the request expires and is discarded on the next poll — there is no retry or notification back to the admin, who simply clicks "Unlock Door" again.
@@ -61,7 +61,7 @@ Delivery is fire-and-forget: if the ESP32 is slow to poll, the request waits in 
 **Dashboard load (on mount)**
 
 1. Dashboard calls `GET /dashboard/summary` to fetch current state: access granted today, access denied today, last event, and the most recent 30 history entries.
-2. Dashboard opens an SSE connection to `GET /doorbell/stream?fingerprint=<fingerprint>` for events going forward.
+2. Dashboard opens an SSE connection to `GET /door/stream?fingerprint=<fingerprint>` for events going forward.
 3. REST covers "everything up to now," SSE covers "everything from now on" — the two are never used to duplicate the same data.
 
 **SSE reconnect**
@@ -89,17 +89,17 @@ Delivery is fire-and-forget: if the ESP32 is slow to poll, the request waits in 
 | Servo driven directly by ESP32 GPIO, no relay | The servo takes a logic-level PWM signal only. A relay is needed solely to switch the solenoid's separate 12V/higher-current circuit, which GPIO cannot drive directly. |
 | Solenoid driven through a relay on a separate 12V supply | ESP32 GPIO cannot supply the solenoid's 12V/0.6A draw. The relay isolates logic-level control from the power circuit. |
 | Fingerprint enrollment is local/offline via USB-serial, not dashboard-triggered | MVP scope is 1–2 enrolled fingers with no multi-user management UI. A remote-enrollment endpoint and backend→device command channel would be new architecture for a feature used only a handful of times total. |
-| Admin unlock delivered via ESP32 polling, not a push/WebSocket channel | Keeps the ESP32's communication model symmetric — plain HTTP requests only, same as `/doorbell/access`. A persistent connection (WebSocket, reverse-SSE) would be new infrastructure for a feature that's used occasionally, not continuously. |
+| Admin unlock delivered via ESP32 polling, not a push/WebSocket channel | Keeps the ESP32's communication model symmetric — plain HTTP requests only, same as `/door/access`. A persistent connection (WebSocket, reverse-SSE) would be new infrastructure for a feature that's used occasionally, not continuously. |
 | Pending unlock modeled as a single nullable timestamp per device, not a generic command queue | Only one command type exists today (`UNLOCK`). A queue/table of typed commands would be unused generality for a single-device MVP with no concurrent commands. |
 | Unlock command consumed at poll time, not at confirmed execution | Fire-and-forget, the same precedent as missed SSE events not being replayed. Acceptable risk for an occasional manual-override path at this MVP scale — if the ESP32 is mid-poll-cycle when it loses power, the admin can simply click "Unlock Door" again. |
 | Unlock command consumed atomically and expires after `UNLOCK_COMMAND_TTL_SECONDS` (60s) | The timestamp is already stored, so a TTL costs nothing. Without it, a click made while the ESP32 is offline would open the door unexpectedly whenever it reconnects. Atomic consume (single `UPDATE ... RETURNING`) stops overlapping polls from both receiving `UNLOCK`. |
 | No login rate limiting or lockout | The API is deployed privately and is not publicly exposed, with one admin account. Accepted MVP limitation; revisit before any public exposure. |
 | SSE `: ping` comment every 25s | Keeps idle connections from being dropped by reverse proxies; comments are invisible to `EventSource`, so no client code changes. |
-| ~3 second poll interval for `GET /doorbell/commands` | Balances perceived latency (a few seconds of delay is acceptable for a manual override) against request volume, which is negligible for a single device. |
-| `POST /doorbell/unlock` uses session + CSRF + fingerprint only, no re-confirmation | Consistent with how every other dashboard mutation is protected in this MVP. The session is already fingerprint-bound to the one trusted admin account — adding a password re-entry step would be a new auth pattern used nowhere else. |
+| ~3 second poll interval for `GET /door/commands` | Balances perceived latency (a few seconds of delay is acceptable for a manual override) against request volume, which is negligible for a single device. |
+| `POST /door/unlock` uses session + CSRF + fingerprint only, no re-confirmation | Consistent with how every other dashboard mutation is protected in this MVP. The session is already fingerprint-bound to the one trusted admin account — adding a password re-entry step would be a new auth pattern used nowhere else. |
 | `ADMIN_UNLOCK` counts toward Granted Today, no separate stat card | The door was physically opened either way. The history list's per-row `outcome` already distinguishes a manual unlock from a fingerprint match, so a 4th stat card would duplicate that distinction without adding information. |
 | Static `deviceId` → label map in backend config | The device is physically fixed at one door for this MVP. A config map gives human-readable labels without a `devices` table or hardware-side complexity. |
-| API key on `POST /doorbell/access` | ESP32 cannot use session cookies. A shared secret in firmware is enough for this single-device school MVP, with HTTPS as the main transport control. |
+| API key on `POST /door/access` | ESP32 cannot use session cookies. A shared secret in firmware is enough for this single-device school MVP, with HTTPS as the main transport control. |
 | Cookie-only SSE + fingerprint in query | `EventSource` cannot send custom headers (`X-CSRF-Token`, `X-Fingerprint`). The session cookie authenticates the stream; `fingerprint` query param carries the device fingerprint for binding validation. CSRF is not required on this read-only GET; mitigations documented in [[API & Database Reference#6.7 SSE fingerprint in query string]]. |
 | Separate `authenticateSse` middleware | Existing `authenticate` requires CSRF header + `X-Fingerprint` header, which `EventSource` cannot send. SSE route uses cookie + query fingerprint only. |
 | Device fingerprint binding in JWT | Stolen `sid` cookie alone is insufficient — attacker must also present the matching fingerprint from the same browser. Combined with HTTPS, this is the primary session theft control. No `jti` revocation list needed for this MVP. |
@@ -133,7 +133,7 @@ This system is scoped as a single-user, single-device MVP, not a production or s
 
 - No multi-tenant support — one house, one owner, one login
 - No multi-device management UI — `deviceId` is hardcoded on the ESP32, not dynamically registered
-- No per-device API keys — single shared key for the one ESP32 (HTTPS is the main control; see [[API & Database Reference#6.5 Doorbell API key (`POST /doorbell/access`)]])
+- No per-device API keys — single shared key for the one ESP32 (HTTPS is the main control; see [[API & Database Reference#6.5 Device API key (`POST /door/access`)]])
 - No horizontal scaling considerations for SSE (a single backend instance holding open connections is sufficient at this scale)
 - No cross-device sync for sound preferences (client-side storage only)
 - No role-based access control — a single fixed admin account is the only user
@@ -150,7 +150,7 @@ Two middleware paths — do not reuse `authenticate` for SSE.
 
 | Middleware | Used on | Validates |
 | --- | --- | --- |
-| `authenticate` | REST: `/session/me`, `/session/logout`, `/dashboard/summary`, `/doorbell/unlock` | Signed `sid` cookie, `X-CSRF-Token` header matches `csrfToken` cookie, `X-Fingerprint` header matches JWT `deviceHash`, JWT not expired |
-| `authenticateSse` | SSE: `/doorbell/stream` | Signed `sid` cookie, `fingerprint` query param matches JWT `deviceHash`, JWT not expired. No CSRF. |
+| `authenticate` | REST: `/session/me`, `/session/logout`, `/dashboard/summary`, `/door/unlock` | Signed `sid` cookie, `X-CSRF-Token` header matches `csrfToken` cookie, `X-Fingerprint` header matches JWT `deviceHash`, JWT not expired |
+| `authenticateSse` | SSE: `/door/stream` | Signed `sid` cookie, `fingerprint` query param matches JWT `deviceHash`, JWT not expired. No CSRF. |
 
 **Related Docs: [[System Documentation]] & [[Wireframe & Flows]] & [[API & Database Reference]]**
