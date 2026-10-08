@@ -1,9 +1,11 @@
 import { getLogger } from "@logtape/logtape";
-import { isKnownDevice, type DeviceId } from "../../config/devices";
+import { DEVICE_LABELS, isKnownDevice } from "../../config/devices";
 import { env } from "../../config/env";
 import { AppError } from "../../errors/appError";
-import { consumePendingUnlock, manualDoorUnlock } from "./data";
-import type { PollDeviceCommandResponse } from "./types";
+import { consumePendingUnlock, createAccessEvent, manualDoorUnlock } from "./data";
+import { publishAccessEvent } from "./events";
+import type { AccessEventDTO, PollDeviceCommandResponse } from "./types";
+import { reportAccessSchema } from "./validation";
 
 export async function manualDoorUnlockService(deviceId: string) {
   const logger = getLogger();
@@ -36,4 +38,36 @@ export async function pollDeviceCommandService(
   } catch (err) {
     throw new AppError("POLL_DEVICE_ERROR");
   }
+}
+
+export async function reportAccessService(body: unknown): Promise<AccessEventDTO> {
+  const logger = getLogger();
+  const input = reportAccessSchema.parse(body);
+  const { deviceId } = input;
+  if (!isKnownDevice(deviceId)) {
+    logger.warn("Unknown device.", { deviceId });
+    throw new AppError("UNKNOWN_DEVICE_ID");
+  }
+
+  let row;
+  try {
+    row = await createAccessEvent({
+      deviceId,
+      outcome: input.outcome,
+      fingerprintSlot: input.fingerprintSlot,
+    });
+  } catch (err) {
+    throw new AppError("ACCESS_EVENT_SERVER_ERROR");
+  }
+
+  const event: AccessEventDTO = {
+    id: row.id,
+    deviceId,
+    deviceLabel: DEVICE_LABELS[deviceId],
+    outcome: row.outcome,
+    fingerprintSlot: row.fingerprintSlot ?? null,
+    timestamp: new Date(row.timestamp).toISOString(),
+  };
+  publishAccessEvent(event);
+  return event;
 }

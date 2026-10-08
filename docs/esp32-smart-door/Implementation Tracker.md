@@ -30,10 +30,10 @@ Legend: `[x]` done · `[ ]` todo · each backend task lists its test cases; each
 - [x] Tests: unlock → poll returns `UNLOCK`; second poll `null`; expired → `null` and cleared; two concurrent polls → exactly one `UNLOCK`; no row → `null`; bad/missing key → 401; unknown device → 400
 
 ### B4. Access reporting — `POST /door/access` (API key)
-- [ ] Zod body schema: `deviceId`, `outcome` (`GRANTED | DENIED | ADMIN_UNLOCK`), `fingerprintSlot` (required for `GRANTED` only)
-- [ ] Insert `AccessEvent`; unknown device → 400
-- [ ] Publish event to the SSE broadcaster (stub the publisher until B6)
-- [ ] Tests: each outcome persisted; `GRANTED` without slot → 400; slot on `DENIED` rejected/ignored per docs; bad key → 401
+- [x] Zod body schema: `deviceId`, `outcome` (`GRANTED | DENIED | ADMIN_UNLOCK`), `fingerprintSlot` (required for `GRANTED` only)
+- [x] Insert `AccessEvent`; unknown device → 400
+- [x] Publish event to the SSE broadcaster (stub the publisher until B6)
+- [x] Tests: each outcome persisted; `GRANTED` without slot → 400; slot on `DENIED` rejected/ignored per docs; bad key → 401
 
 ### B5. Dashboard summary — `GET /dashboard/summary` (session)
 - [ ] New `features/dashboard/` (read-only; imports from `door`/events, owns no door logic)
