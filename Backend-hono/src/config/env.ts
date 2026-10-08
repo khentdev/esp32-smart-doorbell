@@ -25,4 +25,7 @@ export const env = {
 
   COOKIE_SECRET: loadEnvVar("COOKIE_SECRET", "your-cookie-secret"),
   HASH_SECRET: loadEnvVar("HASH_SECRET", "your-hash-secret"),
+
+  DEVICE_API_KEY: loadEnvVar("DEVICE_API_KEY"),
+  UNLOCK_COMMAND_TTL_SECONDS: loadEnvVar("UNLOCK_COMMAND_TTL_SECONDS", "60"),
 } as const;

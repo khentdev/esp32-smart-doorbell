@@ -19,15 +19,15 @@ Legend: `[x]` done · `[ ]` todo · each backend task lists its test cases; each
 - [x] Tests: 202 + row upsert, repeat unlock resets timestamp, unknown/prototype/missing `deviceId` → 400, all auth failures → no row written
 
 ### B2. Device API-key middleware
-- [ ] Add `DEVICE_API_KEY` to `config/env.ts` and `.env.example`
-- [ ] `middleware/authenticateDevice.ts`: constant-time compare, `401` on missing/wrong key (add error code + definition)
-- [ ] Tests: missing key, wrong key, valid key passes
+- [x] Add `DEVICE_API_KEY` to `config/env.ts` and `.env.example`
+- [x] `middleware/authenticateDevice.ts`: constant-time compare, `401` on missing/wrong key (add error code + definition)
+- [x] Tests: missing key, wrong key, valid key passes
 
 ### B3. Device polling — `GET /door/commands?deviceId=` (API key)
-- [ ] Add `UNLOCK_COMMAND_TTL_SECONDS` (default 60) to `env.ts`
-- [ ] Data fn: atomic consume of `pendingUnlockAt` (single statement; check what ORM `update` returns on no match)
-- [ ] Service: `UNLOCK` if within TTL, else `null`; unknown `deviceId` → 400
-- [ ] Tests: unlock → poll returns `UNLOCK`; second poll `null`; expired → `null` and cleared; two concurrent polls → exactly one `UNLOCK`; no row → `null`; bad/missing key → 401; unknown device → 400
+- [x] Add `UNLOCK_COMMAND_TTL_SECONDS` (default 60) to `env.ts`
+- [x] Data fn: atomic consume of `pendingUnlockAt` (single statement; check what ORM `update` returns on no match)
+- [x] Service: `UNLOCK` if within TTL, else `null`; unknown `deviceId` → 400
+- [x] Tests: unlock → poll returns `UNLOCK`; second poll `null`; expired → `null` and cleared; two concurrent polls → exactly one `UNLOCK`; no row → `null`; bad/missing key → 401; unknown device → 400
 
 ### B4. Access reporting — `POST /door/access` (API key)
 - [ ] Zod body schema: `deviceId`, `outcome` (`GRANTED | DENIED | ADMIN_UNLOCK`), `fingerprintSlot` (required for `GRANTED` only)

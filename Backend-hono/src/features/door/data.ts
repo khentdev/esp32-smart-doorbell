@@ -8,3 +8,15 @@ export async function manualDoorUnlock(deviceId: DeviceId) {
     update: { pendingUnlockAt },
   });
 }
+
+export async function consumePendingUnlock(deviceId: DeviceId, cutoff: string) {
+  const plan = db.sql.public.DeviceCommand.update({ pendingUnlockAt: null })
+    .where((f, fns) =>
+      fns.and(fns.eq(f.deviceId, deviceId), fns.gt(f.pendingUnlockAt, cutoff)),
+    )
+    .returning("deviceId")
+    .build();
+
+  const rows = await db.runtime().query(plan);
+  return rows.length > 0;
+}

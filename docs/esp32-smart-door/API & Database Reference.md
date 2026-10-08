@@ -403,6 +403,7 @@ Fingerprint in the SSE URL increases exposure via server logs and browser histor
 | `INVALID_BODY` | 400 | Request body missing or not valid JSON |
 | `VALIDATION_ERROR` | 400 | Input failed schema validation; field details in `error.issues` |
 | `SESSION_UNAUTHORIZED` | 401 | Missing session cookie, missing/mismatched CSRF token, fingerprint mismatch, or user no longer exists |
+| `DEVICE_UNAUTHORIZED` | 401 | Missing or invalid `X-API-Key` on a device endpoint (`/door/access`, `/door/commands`) |
 | `TOKEN_EXPIRED` | 401 | Session JWT is past its `exp` |
 | `TOKEN_INVALID` | 401 | Session JWT is malformed, has a bad signature, or the wrong issuer |
 | `SERVER_ERROR` | 500 | Unexpected server failure (no internal details exposed) |

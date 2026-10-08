@@ -4,3 +4,7 @@ export type ManualDoorUnlockInput = {
 export type ManualDoorUnlockResponse = {
   status: "UNLOCK_REQUESTED";
 };
+
+export type PollDeviceCommandResponse = {
+  command: "UNLOCK" | null;
+};
