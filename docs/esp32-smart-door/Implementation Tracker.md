@@ -36,9 +36,9 @@ Legend: `[x]` done · `[ ]` todo · each backend task lists its test cases; each
 - [x] Tests: each outcome persisted; `GRANTED` without slot → 400; slot on `DENIED` rejected/ignored per docs; bad key → 401
 
 ### B5. Dashboard summary — `GET /dashboard/summary` (session)
-- [ ] New `features/dashboard/` (read-only; imports from `door`/events, owns no door logic)
-- [ ] Today's UTC counts (`accessGrantedToday` includes `ADMIN_UNLOCK`), last 30 events with `deviceLabel`
-- [ ] Tests: counts split by outcome, UTC day boundary, history capped at 30 and newest-first, unauthenticated → 401
+- [x] New `features/dashboard/` (read-only; imports from `door`/events, owns no door logic)
+- [x] Today's UTC counts (`accessGrantedToday` includes `ADMIN_UNLOCK`), last 30 events with `deviceLabel`
+- [x] Tests: counts split by outcome, UTC day boundary, history capped at 30 and newest-first, unauthenticated → 401
 
 ### B6. Live stream — `GET /door/stream` (SSE)
 - [ ] `authenticateSse` middleware (session cookie + fingerprint **query** param, no CSRF)

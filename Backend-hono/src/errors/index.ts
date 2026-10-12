@@ -5,6 +5,10 @@ import {
   SESSION_ERROR_DEF,
 } from "../features/session/errors";
 import { DOOR_ERROR_CODES, DOOR_ERROR_DEFINITIONS } from "../features/door/errors";
+import {
+  DASHBOARD_ERROR_CODES,
+  DASHBOARD_ERROR_DEFINITIONS,
+} from "../features/dashboard/errors";
 
 export type ErrorDefinitions = {
   code: ErrorCodes;
@@ -23,6 +27,7 @@ export const FEATURE_ERROR_CODES = {
   ...AUTH_ERROR_CODES,
   ...SESSION_ERROR_CODES,
   ...DOOR_ERROR_CODES,
+  ...DASHBOARD_ERROR_CODES,
   INVALID_DEVICE_ID: "INVALID_DEVICE_ID",
   SERVER_ERROR: "SERVER_ERROR",
   TOKEN_INVALID: "TOKEN_INVALID",
@@ -37,6 +42,7 @@ export const FEATURE_ERROR_DEFINITIONS: Record<ErrorCodes, ErrorDefinitions> = {
   ...AUTH_ERROR_DEF,
   ...SESSION_ERROR_DEF,
   ...DOOR_ERROR_DEFINITIONS,
+  ...DASHBOARD_ERROR_DEFINITIONS,
   INVALID_DEVICE_ID: {
     code: "INVALID_DEVICE_ID",
     status: 400,
