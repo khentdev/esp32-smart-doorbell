@@ -331,7 +331,9 @@ data: {"id":"uuid","deviceId":"front_gate","deviceLabel":"Front Gate","outcome":
 
 SSE payload shape matches `AccessEvent`.
 
-**Heartbeat:** the server writes a comment line (`: ping\n\n`) every **25 seconds** so idle connections are not dropped by proxies or load balancers. Comments are ignored by `EventSource`, so the client sees no event. Responses use `Content-Type: text/event-stream`, `Cache-Control: no-cache`, and `X-Accel-Buffering: no`; disable response compression/buffering on this route at the reverse proxy.
+**Connection:** the server writes a `: connected` comment immediately on open so the client and any proxy see bytes right away. Auth is checked once, at connect; an already-open stream is not closed when the session expires or the user logs out (consistent with §6.4 — no server-side revocation).
+
+**Heartbeat:** the server writes a comment line (`: ping\n\n`) every **25 seconds** (`SSE_HEARTBEAT_SECONDS`) so idle connections are not dropped by proxies or load balancers. Comments are ignored by `EventSource`, so the client sees no event. Responses use `Content-Type: text/event-stream`, `Cache-Control: no-cache`, and `X-Accel-Buffering: no`; disable response compression/buffering on this route at the reverse proxy.
 
 **Reconnect:** no event IDs and no replay — a missed event is never re-sent. The browser's `EventSource` reconnects automatically; on reconnect the dashboard refetches `GET /dashboard/summary` to catch up (missed events appear in stats/history only, no toasts).
 

@@ -41,9 +41,9 @@ Legend: `[x]` done · `[ ]` todo · each backend task lists its test cases; each
 - [x] Tests: counts split by outcome, UTC day boundary, history capped at 30 and newest-first, unauthenticated → 401
 
 ### B6. Live stream — `GET /door/stream` (SSE)
-- [ ] `authenticateSse` middleware (session cookie + fingerprint **query** param, no CSRF)
-- [ ] In-memory broadcaster; stream new `AccessEvent`s; heartbeat; cleanup on disconnect
-- [ ] Tests: auth failures, event published by B4 arrives on stream
+- [x] `authenticateSse` middleware (session cookie + fingerprint **query** param, no CSRF)
+- [x] In-memory broadcaster; stream new `AccessEvent`s; heartbeat; cleanup on disconnect
+- [x] Tests: auth failures, event published by B4 arrives on stream
 
 ### B7. Hardening / docs
 - [ ] Invalid/missing JSON body on `POST /door/unlock` → 400 (currently unhandled `c.req.json()`)

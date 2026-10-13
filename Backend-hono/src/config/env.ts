@@ -28,4 +28,5 @@ export const env = {
 
   DEVICE_API_KEY: loadEnvVar("DEVICE_API_KEY"),
   UNLOCK_COMMAND_TTL_SECONDS: loadEnvVar("UNLOCK_COMMAND_TTL_SECONDS", "60"),
+  SSE_HEARTBEAT_SECONDS: loadEnvVar("SSE_HEARTBEAT_SECONDS", "25"),
 } as const;

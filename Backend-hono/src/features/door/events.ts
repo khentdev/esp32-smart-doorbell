@@ -13,6 +13,11 @@ export function subscribeToAccessEvents(listener: AccessEventListener) {
   };
 }
 
+/** Number of live subscribers (used by tests to assert disconnect cleanup). */
+export function accessEventListenerCount() {
+  return listeners.size;
+}
+
 /** Fan out a persisted access event. A failing listener never affects the others or the request. */
 export function publishAccessEvent(event: AccessEventDTO) {
   for (const listener of listeners) {
