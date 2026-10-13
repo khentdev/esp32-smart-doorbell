@@ -3,7 +3,13 @@ import { z } from "zod";
 export const ACCESS_OUTCOMES = ["GRANTED", "DENIED", "ADMIN_UNLOCK"] as const;
 
 // A non-string or missing deviceId becomes "" so it is rejected as UNKNOWN_DEVICE_ID
-// by the service, the same as every other unknown id.
+// by the service, the same as every other unknown id. A body that is not an object
+// (e.g. `null`) fails the schema and surfaces as VALIDATION_ERROR.
+export const manualUnlockSchema = z.object({
+  deviceId: z.string().catch(""),
+});
+
+// Same deviceId handling as manualUnlockSchema.
 export const reportAccessSchema = z
   .object({
     deviceId: z.string().catch(""),

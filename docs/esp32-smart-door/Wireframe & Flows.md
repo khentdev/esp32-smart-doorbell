@@ -29,7 +29,7 @@
 ### 3. Live Notification (Toast)
 
 - Triggered automatically when the backend accepts an access event and broadcasts it via SSE
-  - Toast appears with device label, outcome, and absolute datetime (user's local timezone), styled differently for granted vs denied
+  - Toast appears with device label, outcome, and absolute datetime (user's local timezone), styled differently for granted, denied, and admin unlock
   - Sound plays simultaneously (default preset: **chime**, unless user saved a different preference)
   - Toast auto-dismisses after a few seconds — no user action needed
 - SSE connects via `GET /door/stream?fingerprint=<fingerprint>` (cookie sent automatically; this `fingerprint` is the browser fingerprint used for session binding, unrelated to the physical fingerprint scan that produced the event)

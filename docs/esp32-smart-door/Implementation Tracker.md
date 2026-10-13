@@ -46,9 +46,13 @@ Legend: `[x]` done · `[ ]` todo · each backend task lists its test cases; each
 - [x] Tests: auth failures, event published by B4 arrives on stream
 
 ### B7. Hardening / docs
-- [ ] Invalid/missing JSON body on `POST /door/unlock` → 400 (currently unhandled `c.req.json()`)
-- [ ] Update [[API & Database Reference]] if any contract changed
-- [ ] Full suite green: `bun run test`
+- [x] `POST /door/unlock` body validated with zod (`manualUnlockSchema`): not-JSON/empty → `400 INVALID_BODY`, non-object (`null`, array, string, number) → `400 VALIDATION_ERROR` (was `500` for `null`), missing/non-string `deviceId` → `400 UNKNOWN_DEVICE_ID`
+- [x] Tests: malformed, empty, `null`, array/string/number, numeric/object `deviceId`, bad body without session → `401`
+- [x] `POST /auth/login` returns `{ user, message }` as documented (code returned `{ data: { user }, message }`); `LoginResponse` type fixed (no `id`)
+- [x] Removed dead error codes `API_KEY_INVALID`, `USER_NOT_FOUND`; backend `TokenPayload` now includes the signed `iat` / `nonce`
+- [x] [[API & Database Reference]] updated: unlock/commands/summary/access error responses, §6.8 full error-code table, env-var table, type-file location
+- [x] Docs cross-checked and aligned: [[System Design Documentation]] (JWT claims, device map), [[System Documentation]] (rate-limit bullet moved to Auth), [[Wireframe & Flows]] (three toast outcomes), `doc-update-task.md` marked historical
+- [x] Full suite green: `bun run test` (129 passing), `tsc --noEmit` clean
 
 ---
 

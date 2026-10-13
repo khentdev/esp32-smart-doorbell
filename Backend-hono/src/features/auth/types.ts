@@ -11,13 +11,9 @@ export type LoginInput = {
 export type LoginInputVariables = {
   LoginInput: LoginInput;
 };
-export type LoginDTO = {
+export type LoginResponse = {
   user: {
-    id: string;
     username: string;
   };
-};
-export type LoginResponse = {
-  data: LoginDTO;
   message: string;
 };

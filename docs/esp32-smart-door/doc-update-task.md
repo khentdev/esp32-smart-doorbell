@@ -1,3 +1,5 @@
+> **Historical brief — superseded.** This was the task description for the button → fingerprint scope change. Several decisions below were later changed (e.g. the device-key error is now `DEVICE_UNAUTHORIZED`, endpoints are `/door/*` not `/doorbell/*`, history is the last 30 entries, the adapter is 12V 3A). Do not treat it as a spec; [[API & Database Reference]], [[System Design Documentation]], [[System Documentation]] and [[Wireframe & Flows]] are the source of truth.
+
 # Task: Update Project Documentation for Hardware Scope Change
 
 ## Context
