@@ -110,20 +110,19 @@ Delivery is fire-and-forget: if the ESP32 is slow to poll, the request waits in 
 | No retention/cleanup policy on `accessEvents` | The table grows unbounded in PostgreSQL — the 30-entry cap bounds only the dashboard's `recentHistory` display, not the data. At single-household MVP scale, unbounded storage isn't a cost or performance concern, so no cron/scheduled deletion job is introduced. |
 | Sound preference in local storage; custom uploads in IndexedDB | No need to round-trip a preference through the backend/database. Tradeoff: preference is device/browser-specific and won't sync across devices. |
 | Fetch-on-mount + SSE, not SSE-only | SSE only delivers events that occur after the connection opens. An initial REST fetch is required to populate existing stats/history on page load. |
-| Simplified JWT claims (single-user MVP) | Token payload is `sub`, `deviceHash`, `iss`, `exp` only. Remove leftover `tenantId` / `STAFF` role from backend template at implementation. |
+| Simplified JWT claims (single-user MVP) | Token payload is `sub`, `deviceHash`, `iss`, `iat`, `exp`, and a random `nonce` (so two tokens issued in the same second differ). No tenant or role claims. |
 
 ### 4. Device Label Map
 
 Static config in the backend (e.g. env or config file):
 
 ```ts
-const DEVICE_LABELS: Record<string, string> = {
+const DEVICE_LABELS = {
   front_gate: "Front Gate",
-  back_door: "Back Door",
-}
+} as const
 ```
 
-- `deviceId` from the ESP32 must match a key in this map.
+- `deviceId` from the ESP32 must match a key in this map (checked with `Object.hasOwn`, so `constructor`/`__proto__` are rejected). This map is the only source of known devices; anything else is unknown (tests use `back_door` as an unknown id).
 - Unknown `deviceId` → reject the event with `400`.
 - MVP deploys one physical device with one hardcoded `deviceId`; the map exists for human-readable labels only.
 

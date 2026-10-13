@@ -1,6 +1,6 @@
 ## API & Database Reference
 
-Source of truth for the database schema, shared types, endpoint list, request/response bodies, and route protection rules. Mirror shared types as TypeScript in the backend and frontend (e.g. `Backend-hono/src/types/api.ts`, `Frontend/src/types/api.ts`). Keep code in sync with this doc when the contract changes.
+Source of truth for the database schema, shared types, endpoint list, request/response bodies, and route protection rules. Mirror shared types as TypeScript in the backend (per-feature `Backend-hono/src/features/*/types.ts`) and the frontend (`Frontend/src/types/api.ts`). Keep code in sync with this doc when the contract changes.
 
 **Naming:** Database columns, API JSON bodies, and shared TypeScript types all use **camelCase**.
 
@@ -236,7 +236,9 @@ Logout goes through `authenticate`, so an already-expired session returns `401 T
 
 **Response `401`** — invalid or missing API key (compared with constant-time equality).
 
-**Response `400`** — unknown `deviceId`, invalid `outcome` value, or `fingerprintSlot` present/missing inconsistent with `outcome`.
+**Response `400`** — unknown `deviceId`, invalid `outcome` value, or `fingerprintSlot` present/missing inconsistent with `outcome` (`UNKNOWN_DEVICE_ID`, `VALIDATION_ERROR`); `INVALID_BODY` if the body is not valid JSON.
+
+**Response `500`** — `ACCESS_EVENT_SERVER_ERROR`: the event could not be persisted (nothing is broadcast).
 
 #### `GET /dashboard/summary`
 
@@ -264,6 +266,10 @@ Logout goes through `authenticate`, so an already-expired session returns `401 T
 
 `accessGrantedToday` / `accessDeniedToday` count events whose UTC timestamp falls on the current UTC calendar day, split by `outcome`; `accessGrantedToday` includes `"ADMIN_UNLOCK"` events.
 
+**Response `401`** — `SESSION_UNAUTHORIZED` / `TOKEN_EXPIRED` / `TOKEN_INVALID` (see §6.8); `400 INVALID_DEVICE_ID` if `X-Fingerprint` is missing or invalid.
+
+**Response `500`** — `DASHBOARD_SUMMARY_ERROR`.
+
 #### `POST /door/unlock`
 
 **Headers:** `X-CSRF-Token`, `X-Fingerprint`
@@ -288,7 +294,9 @@ Upserts the device's `deviceCommands` row with `pendingUnlockAt = now()`. Does n
 { "error": { "code": "SESSION_UNAUTHORIZED", "message": "Your session is invalid or has expired. Please log in again." } }
 ```
 
-**Response `400`** — unknown `deviceId`.
+**Response `400`** — `UNKNOWN_DEVICE_ID` if `deviceId` is missing, not a string, or not a configured device; `INVALID_BODY` if the body is empty or not valid JSON; `VALIDATION_ERROR` if the JSON body is not an object (e.g. `null`, an array). Authentication is checked first, so an unauthenticated request with a bad body is `401`, not `400`.
+
+**Response `500`** — `DOOR_UNLOCK_SERVER_ERROR`: the pending-unlock row could not be written.
 
 #### `GET /door/commands?deviceId=front_gate`
 
@@ -314,7 +322,9 @@ The backend consumes the command in a **single atomic statement** (e.g. `UPDATE 
 
 **Response `401`** — invalid or missing API key.
 
-**Response `400`** — unknown `deviceId`.
+**Response `400`** — `UNKNOWN_DEVICE_ID`: `deviceId` is missing or not a configured device.
+
+**Response `500`** — `POLL_DEVICE_ERROR`: the pending command could not be consumed.
 
 #### `GET /door/stream?fingerprint=<fingerprint>`
 
@@ -378,6 +388,14 @@ CSRF protection: `X-CSRF-Token` header must match the `csrfToken` cookie on all 
 - **Known MVP limitation:** a single shared key can assert any configured `deviceId` and `outcome`. Acceptable for this single-device school project; HTTPS and physical custody of the device are the controls — there is no debounce or rate limit on this endpoint.
 - `GET /door/commands` reuses this same API key control — no separate auth mechanism for command polling.
 
+**Backend environment variables introduced by the door features** (see `Backend-hono/.env.example`):
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `DEVICE_API_KEY` | — (required) | Shared secret the ESP32 sends as `X-API-Key` |
+| `UNLOCK_COMMAND_TTL_SECONDS` | `60` | How long a pending manual unlock stays valid (see §6.6) |
+| `SSE_HEARTBEAT_SECONDS` | `25` | Interval of the `: ping` comment on `GET /door/stream` |
+
 #### 6.6 Admin unlock delivery
 
 - `POST /door/unlock` bypasses fingerprint matching entirely, so it is gated by the full dashboard session stack (signed `sid` cookie, CSRF, fingerprint binding) — the same protection as every other dashboard mutation. No additional re-confirmation step (e.g. password re-entry) is required.
@@ -394,7 +412,7 @@ Fingerprint in the SSE URL increases exposure via server logs and browser histor
 - `SameSite=Lax` on `sid` prevents cross-site sites from opening a credentialed `EventSource` to the API.
 - CSRF is intentionally omitted on this read-only GET; cookie + fingerprint binding is the control.
 
-#### 6.8 Error codes (auth-related)
+#### 6.8 Error codes
 
 | Code | HTTP | When |
 | --- | --- | --- |
@@ -403,14 +421,18 @@ Fingerprint in the SSE URL increases exposure via server logs and browser histor
 | `INVALID_PASSWORD` | 400 | Empty or blank `password` on login |
 | `INVALID_DEVICE_ID` | 400 | Missing or invalid fingerprint (login and authenticated routes) |
 | `INVALID_BODY` | 400 | Request body missing or not valid JSON |
-| `VALIDATION_ERROR` | 400 | Input failed schema validation; field details in `error.issues` |
+| `VALIDATION_ERROR` | 400 | Input failed schema validation (including a JSON body that is not an object); field details in `error.issues` |
 | `SESSION_UNAUTHORIZED` | 401 | Missing session cookie, missing/mismatched CSRF token, fingerprint mismatch, or user no longer exists |
 | `UNKNOWN_DEVICE_ID` | 400 | `deviceId` is missing or not a configured device (`/door/unlock`, `/door/access`, `/door/commands`) |
 | `DEVICE_UNAUTHORIZED` | 401 | Missing or invalid `X-API-Key` on a device endpoint (`/door/access`, `/door/commands`) |
 | `TOKEN_EXPIRED` | 401 | Session JWT is past its `exp` |
 | `TOKEN_INVALID` | 401 | Session JWT is malformed, has a bad signature, or the wrong issuer |
+| `DOOR_UNLOCK_SERVER_ERROR` | 500 | Writing the pending unlock from `POST /door/unlock` failed |
+| `POLL_DEVICE_ERROR` | 500 | Consuming the pending command in `GET /door/commands` failed |
 | `ACCESS_EVENT_SERVER_ERROR` | 500 | Persisting an access event from `POST /door/access` failed |
+| `DASHBOARD_SUMMARY_ERROR` | 500 | Building `GET /dashboard/summary` failed |
 | `SERVER_ERROR` | 500 | Unexpected server failure (no internal details exposed) |
+| `NOT_FOUND` | 404 | No such route |
 
 #### 6.9 Error response envelope
 

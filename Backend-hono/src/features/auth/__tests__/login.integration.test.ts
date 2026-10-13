@@ -45,7 +45,7 @@ describe("Login Integration Test", () => {
 
             const json = await res.json() as LoginResponse
             expect(json.message).toBe("Logged in successfully")
-            expect(json.data.user).toEqual({ username: user.username })
+            expect(json.user).toEqual({ username: user.username })
 
             const cookies = res.headers.getSetCookie()
             const sid = cookies.find((c) => c.startsWith("sid="))

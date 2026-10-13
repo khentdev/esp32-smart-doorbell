@@ -10,13 +10,13 @@ import {
 } from "./service";
 import type {
   AccessEventDTO,
-  ManualDoorUnlockInput,
   ManualDoorUnlockResponse,
   PollDeviceCommandResponse,
 } from "./types";
+import { manualUnlockSchema } from "./validation";
 
 export async function manualDoorUnlockController(c: Context<AppContext>) {
-  const { deviceId } = await c.req.json<ManualDoorUnlockInput>();
+  const { deviceId } = manualUnlockSchema.parse(await c.req.json());
   await manualDoorUnlockService(deviceId);
   return c.json<ManualDoorUnlockResponse>({ status: "UNLOCK_REQUESTED" },202);
 }

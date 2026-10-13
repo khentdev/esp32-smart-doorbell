@@ -28,7 +28,7 @@ export async function loginController(
 
   return c.json<LoginResponse>(
     {
-      data: { user },
+      user,
       message: "Logged in successfully",
     },
     200,

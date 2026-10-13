@@ -12,9 +12,14 @@ export type TokenPayload = {
   sub: string;
   iss: string;
   exp: number;
+  iat: number;
+  nonce: string;
 };
 
-export type TokenPayloadParameter = Omit<TokenPayload, "iss" | "exp">;
+export type TokenPayloadParameter = Omit<
+  TokenPayload,
+  "iss" | "exp" | "iat" | "nonce"
+>;
 
 export type JwtErrorConstructor =
   | typeof JwtAlgorithmNotImplemented

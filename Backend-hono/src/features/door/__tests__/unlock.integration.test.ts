@@ -39,14 +39,16 @@ describe("Manual Door Unlock Integration Test", () => {
         return { cookieHeader, csrfToken }
     }
 
+    // rawBody lets a test send something that is not JSON.
     const postUnlock = (
         headers: Record<string, string>,
         body: unknown = { deviceId: DEVICE_ID },
+        { rawBody }: { rawBody?: string } = {},
     ) =>
         app.request("/door/unlock", {
             method: "POST",
             headers: { "Content-Type": "application/json", ...headers },
-            body: JSON.stringify(body),
+            body: rawBody ?? JSON.stringify(body),
         })
 
     const authedHeaders = (cookieHeader: string, csrfToken: string, fingerprint?: string) => ({
@@ -140,6 +142,53 @@ describe("Manual Door Unlock Integration Test", () => {
             expect(res.status).toBe(400)
             expect(await getCommands()).toHaveLength(0)
         })
+
+        it.each([
+            { testCase: "not valid JSON", rawBody: "{not json" },
+            { testCase: "empty", rawBody: "" },
+        ])("should return INVALID_BODY and write nothing if the body is $testCase", async ({ rawBody }) => {
+            await seedUser(USERNAME)
+            const { cookieHeader, csrfToken } = await loginAndGetCredentials()
+
+            const res = await postUnlock(authedHeaders(cookieHeader, csrfToken), undefined, { rawBody })
+            const json = await res.json() as ErrorBody
+
+            expect(res.status).toBe(400)
+            expect(json.error.code).toBe("INVALID_BODY")
+            expect(await getCommands()).toHaveLength(0)
+        })
+
+        it.each([
+            { testCase: "null", body: null },
+            { testCase: "an array", body: ["front_gate"] },
+            { testCase: "a string", body: "front_gate" },
+            { testCase: "a number", body: 42 },
+        ])("should return VALIDATION_ERROR and write nothing if the JSON body is $testCase", async ({ body }) => {
+            await seedUser(USERNAME)
+            const { cookieHeader, csrfToken } = await loginAndGetCredentials()
+
+            const res = await postUnlock(authedHeaders(cookieHeader, csrfToken), body)
+            const json = await res.json() as ErrorBody
+
+            expect(res.status).toBe(400)
+            expect(json.error.code).toBe("VALIDATION_ERROR")
+            expect(await getCommands()).toHaveLength(0)
+        })
+
+        it.each([
+            { testCase: "a numeric deviceId", body: { deviceId: 123 } },
+            { testCase: "an object deviceId", body: { deviceId: {} } },
+        ])("should return UNKNOWN_DEVICE_ID and write nothing for $testCase", async ({ body }) => {
+            await seedUser(USERNAME)
+            const { cookieHeader, csrfToken } = await loginAndGetCredentials()
+
+            const res = await postUnlock(authedHeaders(cookieHeader, csrfToken), body)
+            const json = await res.json() as ErrorBody
+
+            expect(res.status).toBe(400)
+            expect(json.error.code).toBe("UNKNOWN_DEVICE_ID")
+            expect(await getCommands()).toHaveLength(0)
+        })
     })
 
     describe("authentication", () => {
@@ -210,6 +259,15 @@ describe("Manual Door Unlock Integration Test", () => {
 
             expect(res.status).toBe(expectedStatus)
             expect(json.error.code).toBe(expectedCode)
+            expect(await getCommands()).toHaveLength(0)
+        })
+
+        it("should check the session before the body: a bad body without a session is 401, not 400", async () => {
+            const res = await postUnlock({}, null, { rawBody: "{not json" })
+            const json = await res.json() as ErrorBody
+
+            expect(res.status).toBe(401)
+            expect(json.error.code).toBe("SESSION_UNAUTHORIZED")
             expect(await getCommands()).toHaveLength(0)
         })
     })

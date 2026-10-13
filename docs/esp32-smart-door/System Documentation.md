@@ -25,6 +25,7 @@
 - Login returns "invalid username or password" on failure (generic message — does not reveal whether username exists)
 - Admin credentials are fixed at setup time (seeded once, not self-service registration); password must meet minimum strength at seed time
 - Client must send `X-Fingerprint` header on login; server rejects malformed or weak fingerprints with `400`
+- Login has no rate limiting or lockout — an accepted limitation because the system is deployed privately and not exposed publicly
 
 #### 1. Session Management
 
@@ -135,7 +136,6 @@
 - Clicking the button doesn't unlock instantly: it sets a pending-unlock flag that the ESP32 picks up on its next poll (~3 second interval), so there's a brief delay before the door actually opens
 - Delivery is fire-and-forget: there is only one pending-unlock slot per device, and it's cleared the moment the ESP32 polls it, regardless of whether the physical unlock actually succeeds
 - A pending unlock expires after 60 seconds (`UNLOCK_COMMAND_TTL_SECONDS`): if the ESP32 was offline and polls later than that, the request is discarded rather than opening the door, and the admin clicks "Unlock Door" again
-- Login has no rate limiting or lockout — an accepted limitation because the system is deployed privately and not exposed publicly
 - Reported back to the backend via the same `POST /door/access` endpoint as a fingerprint scan, with outcome `"ADMIN_UNLOCK"` — it appears in history and counts toward Granted Today like any other successful access
 
 **Related Docs: [[Wireframe & Flows]] & [[System Design Documentation]] & [[API & Database Reference]]**
