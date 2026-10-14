@@ -2,6 +2,8 @@
 
 Source of truth for the database schema, shared types, endpoint list, request/response bodies, and route protection rules. Mirror shared types as TypeScript in the backend (per-feature `Backend-hono/src/features/*/types.ts`) and the frontend (`Frontend/src/types/api.ts`). Keep code in sync with this doc when the contract changes.
 
+**Copy-paste TypeScript per endpoint (request, response, error codes, usage notes): [[API Contract]].**
+
 **Naming:** Database columns, API JSON bodies, and shared TypeScript types all use **camelCase**.
 
 ### 1. Database Schema (MVP)
@@ -449,4 +451,4 @@ Enrolling a finger is a **local, offline** operation on the device and has no AP
 
 See [[System Documentation#5. Fingerprint Enrollment]].
 
-**Related Docs: [[System Documentation]] & [[System Design Documentation]] & [[Wireframe & Flows]]**
+**Related Docs: [[System Documentation]] & [[System Design Documentation]] & [[Wireframe & Flows]] & [[API Contract]]**
