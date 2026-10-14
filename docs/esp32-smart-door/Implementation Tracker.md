@@ -62,7 +62,7 @@ Depends on the backend task named in brackets.
 
 ### F0. Setup
 - [ ] Scaffold Vue app (`Frontend/`), router, API client with `credentials: "include"`
-- [ ] Shared types mirrored from the API doc (`Frontend/src/types/api.ts`)
+- [ ] Shared types copied from [[API Contract]] §1 (`Frontend/src/types/api.ts`)
 - [ ] Fingerprint generator + `X-Fingerprint` header; CSRF token read from cookie → `X-CSRF-Token`
 - [ ] Error handling keyed on `error.code`; `<meta name="referrer" content="no-referrer">`
 
