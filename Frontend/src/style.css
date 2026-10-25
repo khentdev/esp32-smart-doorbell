@@ -1,0 +1,178 @@
+@import 'tailwindcss';
+
+/* ---------- Design tokens ---------- */
+:root {
+  color-scheme: light dark;
+
+  --bg: #f6f5f3;
+  --surface: #ffffff;
+  --surface-2: #faf9f7;
+  --border: #e8e6e1;
+  --text: #1a1a1f;
+  --muted: #6b6b76;
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
+  --accent-fg: #ffffff;
+  --ring: rgb(79 70 229 / 0.35);
+
+  --granted: #15803d;
+  --granted-bg: #e8f6ec;
+  --denied: #b42318;
+  --denied-bg: #fdecea;
+  --admin: #6d28d9;
+  --admin-bg: #f0eafd;
+  --info: #3f4a5c;
+  --info-bg: #eef0f3;
+
+  --shadow-sm: 0 1px 2px rgb(20 20 30 / 0.05);
+  --shadow-md: 0 8px 24px -8px rgb(20 20 30 / 0.12), 0 2px 6px rgb(20 20 30 / 0.05);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e0e11;
+    --surface: #16161a;
+    --surface-2: #1b1b20;
+    --border: #26262d;
+    --text: #ececf1;
+    --muted: #9a9aa6;
+    --accent: #818cf8;
+    --accent-hover: #a5b0fb;
+    --accent-fg: #0e0e11;
+    --ring: rgb(129 140 248 / 0.4);
+
+    --granted: #4ade80;
+    --granted-bg: #12261a;
+    --denied: #f87171;
+    --denied-bg: #2a1416;
+    --admin: #a78bfa;
+    --admin-bg: #1e1830;
+    --info: #b4bccb;
+    --info-bg: #22252c;
+
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-md: 0 8px 24px -8px rgb(0 0 0 / 0.6), 0 2px 6px rgb(0 0 0 / 0.4);
+  }
+}
+
+@theme inline {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--border);
+  --color-ink: var(--text);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-fg: var(--accent-fg);
+
+  --color-granted: var(--granted);
+  --color-granted-bg: var(--granted-bg);
+  --color-denied: var(--denied);
+  --color-denied-bg: var(--denied-bg);
+  --color-admin: var(--admin);
+  --color-admin-bg: var(--admin-bg);
+  --color-info: var(--info);
+  --color-info-bg: var(--info-bg);
+
+  --shadow-card: var(--shadow-sm);
+  --shadow-float: var(--shadow-md);
+}
+
+/* ---------- Base ---------- */
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv11', 'ss01';
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  button:not(:disabled),
+  [role='button'] {
+    cursor: pointer;
+  }
+}
+
+/* ---------- Motion ---------- */
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 currentColor;
+    opacity: 1;
+  }
+  70% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.live-dot {
+  animation: pulse-ring 2s ease-out infinite;
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--border) 50%, var(--surface-2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+/* Toast / list transitions */
+.toast-enter-active,
+.toast-leave-active,
+.list-enter-active,
+.fade-enter-active,
+.fade-leave-active {
+  transition:
+    opacity 0.25s ease,
+    transform 0.25s ease;
+}
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translateY(-8px) scale(0.98);
+}
+.toast-move {
+  transition: transform 0.25s ease;
+}
+.list-enter-from {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
