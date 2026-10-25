@@ -61,34 +61,34 @@ Legend: `[x]` done · `[ ]` todo · each backend task lists its test cases; each
 Depends on the backend task named in brackets.
 
 ### F0. Setup
-- [ ] Scaffold Vue app (`Frontend/`), router, API client with `credentials: "include"`
-- [ ] Shared types copied from [[API Contract]] §1 (`Frontend/src/types/api.ts`)
-- [ ] Fingerprint generator + `X-Fingerprint` header; CSRF token read from cookie → `X-CSRF-Token`
-- [ ] Error handling keyed on `error.code`; `<meta name="referrer" content="no-referrer">`
+- [x] Scaffold Vue app (`Frontend/`), router, API client with `credentials: "include"`
+- [x] Shared types copied from [[API Contract]] §1 (`Frontend/src/types/api.ts`)
+- [x] Fingerprint generator + `X-Fingerprint` header; CSRF token read from cookie → `X-CSRF-Token`
+- [x] Error handling keyed on `error.code`; `<meta name="referrer" content="no-referrer">`
 
 ### F1. Login [`POST /auth/login`]
-- [ ] Login form, validation errors from `VALIDATION_ERROR.issues`
-- [ ] Redirect to dashboard on success
+- [x] Login form, validation errors from `VALIDATION_ERROR.issues`
+- [x] Redirect to dashboard on success
 
 ### F2. Session handling [`GET /session/me`, `DELETE /session/logout`]
-- [ ] Route guard using `/session/me`; clear state on 401
-- [ ] Logout button (clear local state even on `401 TOKEN_EXPIRED`)
+- [x] Route guard using `/session/me`; clear state on 401
+- [x] Logout button (clear local state even on `401 TOKEN_EXPIRED`)
 
 ### F3. Dashboard page [B5 `GET /dashboard/summary`]
-- [ ] Stat cards (granted / denied today)
-- [ ] Recent history list (last 30, device label, outcome, time)
+- [x] Stat cards (granted / denied today)
+- [x] Recent history list (last 30, device label, outcome, time)
 
 ### F4. Unlock button [B1 `POST /door/unlock`]
-- [ ] Button per device; handle `202`, `400`, `401`
-- [ ] Pending state (command is fire-and-forget; result arrives via stream)
+- [x] Button per device; handle `202`, `400`, `401`
+- [x] Pending state (command is fire-and-forget; result arrives via stream)
 
 ### F5. Live feed [B6 `GET /door/stream`]
-- [ ] `EventSource` with fingerprint query param; reconnect handling
-- [ ] Prepend new events to history, bump counts, toast on events
+- [x] `EventSource` with fingerprint query param; reconnect handling
+- [x] Prepend new events to history, bump counts, toast on events
 
 ### F6. Polish
-- [ ] Empty / loading / error states
-- [ ] Responsive layout check
+- [x] Empty / loading / error states
+- [x] Responsive layout check
 
 ---
 
