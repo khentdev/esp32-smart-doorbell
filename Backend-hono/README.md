@@ -18,7 +18,15 @@ bun run deploy
 
 The deploy script builds the framework output, provisions Prisma Postgres when selected, applies migrations, and deploys the app to Prisma Compute.
 
-The starter users are inserted idempotently from `src/prisma/seed.ts` on the first database query through the Composer service binding.
+## Seed a login user
+
+There is no register endpoint, so create the admin account with:
+
+```bash
+bun run db:seed    # default: admin / admin12345
+```
+
+Override with `SEED_USERNAME` / `SEED_PASSWORD`. Safe to run repeatedly (skips if the user exists).
 
 
 ## Prisma
