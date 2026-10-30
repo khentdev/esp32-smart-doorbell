@@ -12,7 +12,8 @@ import {
     seedUser,
 } from "../../../test/helpers"
 
-import { accessEventListenerCount, subscribeToAccessEvents } from "../events"
+import type { FingerprintJobDTO, FingerprintJobEventDTO } from "../../fingerprints/types"
+import { accessEventListenerCount, fingerprintEventListenerCount, subscribeToAccessEvents } from "../events"
 import type { AccessEventDTO } from "../types"
 
 describe("Door Stream Integration Test", () => {
@@ -90,17 +91,30 @@ describe("Door Stream Integration Test", () => {
             .filter((block) => block.startsWith("event: access\n"))
             .map((block) => JSON.parse(block.split("\n").find((l) => l.startsWith("data: "))!.slice("data: ".length)))
 
+    // Parses every `event: fingerprint` block in the buffer.
+    const parseFingerprintEvents = (buffer: string): FingerprintJobEventDTO[] =>
+        buffer
+            .split("\n\n")
+            .filter((block) => block.startsWith("event: fingerprint\n"))
+            .map((block) => JSON.parse(block.split("\n").find((l) => l.startsWith("data: "))!.slice("data: ".length)))
+
     const waitForListenerCount = async (expected: number) => {
         const deadline = Date.now() + READ_TIMEOUT_MS
-        while (accessEventListenerCount() !== expected && Date.now() < deadline) {
+        const settled = () =>
+            accessEventListenerCount() === expected && fingerprintEventListenerCount() === expected
+        while (!settled() && Date.now() < deadline) {
             await new Promise((r) => setTimeout(r, 10))
         }
         expect(accessEventListenerCount()).toBe(expected)
+        expect(fingerprintEventListenerCount()).toBe(expected)
     }
 
     const clearEvents = async () => {
         for (const { id } of await db.orm.public.AccessEvent.all()) {
             await db.orm.public.AccessEvent.where({ id }).delete()
+        }
+        for (const { id } of await db.orm.public.FingerprintJob.all()) {
+            await db.orm.public.FingerprintJob.where({ id }).delete()
         }
     }
 
@@ -286,6 +300,29 @@ describe("Door Stream Integration Test", () => {
 
             const buffer = await reader.readUntil((b) => b.includes(": ping\n\n"))
             expect(buffer).not.toContain("event:")
+        })
+
+        it("should deliver fingerprint job events alongside access events", async () => {
+            const { reader } = await open()
+
+            const enrollRes = await app.request("/fingerprints", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Cookie: cookieHeader,
+                    "X-CSRF-Token": csrfToken,
+                    "X-Fingerprint": deviceFingerprint,
+                },
+                body: JSON.stringify({ deviceId: DEVICE_ID, name: "Stream Person" }),
+            })
+            expect(enrollRes.status).toBe(202)
+            const job = await enrollRes.json() as FingerprintJobDTO
+
+            const buffer = await reader.readUntil((b) => b.includes("event: fingerprint"))
+            const [event] = parseFingerprintEvents(buffer)
+            expect(event!.job).toEqual(job)
+            expect(event!.fingerprint).toBeNull()
+            expect(parseAccessEvents(buffer)).toHaveLength(0)
         })
     })
 

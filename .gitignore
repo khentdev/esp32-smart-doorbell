@@ -1,2 +1,5 @@
 docs/**/.obsidian/
 node_modules/
+firmware/.pio/
+firmware/.vscode/
+firmware/include/secrets.h

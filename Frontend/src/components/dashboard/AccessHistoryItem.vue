@@ -6,6 +6,11 @@ import type { AccessEventDTO } from '@/types/api'
 
 const props = defineProps<{ event: AccessEventDTO }>()
 const meta = OUTCOME_META[props.event.outcome]
+
+// Name snapshot from scan time; "Slot N" for a slot the database doesn't know.
+const person =
+  props.event.fingerprintName ??
+  (props.event.fingerprintSlot !== null ? `Slot ${props.event.fingerprintSlot}` : null)
 </script>
 
 <template>
@@ -22,7 +27,10 @@ const meta = OUTCOME_META[props.event.outcome]
     </span>
 
     <div class="min-w-0 flex-1">
-      <p class="text-ink truncate text-sm font-medium">{{ event.deviceLabel }}</p>
+      <p class="text-ink truncate text-sm font-medium">
+        {{ event.deviceLabel
+        }}<span v-if="person" class="text-muted font-normal"> · {{ person }}</span>
+      </p>
       <time :datetime="event.timestamp" class="text-muted block text-[13px]">
         {{ formatDateTime(event.timestamp) }}
       </time>

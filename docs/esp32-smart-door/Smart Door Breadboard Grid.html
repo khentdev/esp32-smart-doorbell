@@ -1,0 +1,451 @@
+<title>Smart Door Breadboard Grid</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<style>
+/* Layout: one wide diagram card (hole-accurate A–J × 0–60 board), legend chips above, rules + connection table below. */
+:root {
+  --bg: #f4f6f8; --fg: #15191e; --muted: #5a6370; --line: #d8dde3; --card: #ffffff;
+  --accent: #0d7a63; --accent-ink: #ffffff;
+  --bb: #e8ebee; --bb-edge: #c9cfd6; --hole: #a9b1bb; --gap: #d3d8de;
+  --w5: #d7263d; --w33: #d99100; --wgnd: #1c1f23; --wsig: #2160e0; --w12: #a3239f; --wdiode: #6b7280;
+  --pcb-esp: #1a2433; --pcb-blue: #1f4f8f; --pcb-dark: #2a2d33; --pin: #d4a72c; --pin-off: #6b7480; --on-pcb: #f1f3f5;
+  --font-body: "IBM Plex Sans", system-ui, sans-serif;
+  --font-head: "IBM Plex Sans Condensed", "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f1215; --fg: #e6e9ed; --muted: #98a1ac; --line: #29303a; --card: #161a1f;
+  --accent: #3cc4a4; --accent-ink: #062019;
+  --bb: #1e232a; --bb-edge: #2e353e; --hole: #46505b; --gap: #14181c;
+  --w5: #ff5b6b; --w33: #f5b730; --wgnd: #c5cbd3; --wsig: #5d8dff; --w12: #e366e6; --wdiode: #9aa3ae;
+  color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --bg: #0f1215; --fg: #e6e9ed; --muted: #98a1ac; --line: #29303a; --card: #161a1f;
+  --accent: #3cc4a4; --accent-ink: #062019;
+  --bb: #1e232a; --bb-edge: #2e353e; --hole: #46505b; --gap: #14181c;
+  --w5: #ff5b6b; --w33: #f5b730; --wgnd: #c5cbd3; --wsig: #5d8dff; --w12: #e366e6; --wdiode: #9aa3ae;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-block: 28px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 22px; }
+h1 { font-family: var(--font-head); font-size: clamp(26px, 4vw, 36px); margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+h2 { font-family: var(--font-head); font-size: 20px; margin: 0 0 10px; }
+.lede { margin: 4px 0 0; color: var(--muted); max-width: 70ch; }
+code, .mono { font-family: var(--font-mono); font-size: 0.92em; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { font: 500 13px var(--font-mono); border: 1px solid var(--line); background: var(--card); color: var(--fg);
+  border-radius: 999px; padding: 6px 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+.chip i { width: 18px; height: 4px; border-radius: 2px; display: inline-block; }
+.chip[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.chip:focus-visible, tr:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; }
+.diagram { overflow-x: auto; padding: 8px; }
+.diagram svg { display: block; width: 100%; min-width: 980px; height: auto; }
+.info { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; min-height: 1.6em;
+  font-family: var(--font-mono); font-size: 13px; color: var(--muted); padding: 0 4px; }
+.info b { color: var(--fg); font-weight: 600; }
+.cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.8fr); gap: 22px; align-items: start; }
+@media (max-width: 860px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+.rules { padding: 18px 20px; }
+.rules ol { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
+.rules strong { font-weight: 600; }
+.table-card { padding: 18px 20px; min-width: 0; }
+.tscroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+th { text-align: left; font: 600 11px var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
+  padding: 6px 8px; border-bottom: 1px solid var(--line); }
+td { padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+td.hole { font-family: var(--font-mono); font-size: 12.5px; white-space: nowrap; }
+tr.row { cursor: pointer; }
+tr.row:hover td { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+tr.row.sel td { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+tr.grp td { font: 600 12px var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); padding-top: 16px; }
+.sw { display: inline-block; width: 22px; height: 4px; border-radius: 2px; vertical-align: middle; }
+td.note { color: var(--muted); }
+/* SVG */
+.t { font-family: var(--font-mono); fill: var(--fg); }
+.tm { font-family: var(--font-mono); fill: var(--muted); }
+.tp { font-family: var(--font-mono); fill: var(--on-pcb); }
+.th { font-family: var(--font-head); fill: var(--on-pcb); font-weight: 600; }
+.lbl { font-family: var(--font-mono); fill: var(--muted); stroke: var(--bb); stroke-width: 3px; paint-order: stroke; }
+.wire { transition: opacity .15s; }
+.wire .halo { stroke: var(--bb); }
+.wire.off-board .halo { stroke: var(--card); }
+svg.filtering .wire:not(.hl) { opacity: 0.12; }
+svg.filtering .wire.hl path.c { stroke-width: 4.5; }
+.part { cursor: pointer; }
+@media (prefers-reduced-motion: reduce) { .wire { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Smart Door Breadboard</h1>
+    <p class="lede">The same wiring as the overview diagram, placed hole by hole on a standard breadboard: rows A–J, columns 0–60, with a + and − rail on the top and bottom. Pins match <code>firmware/include/pins.h</code> and the Hardware Setup Guide. Click a part, a colour below, or a table row to highlight just those wires. Hover a hole to read its name.</p>
+  </header>
+
+  <div class="chips" role="group" aria-label="Highlight wires">
+    <button class="chip" data-g="all" aria-pressed="true">All wires</button>
+    <button class="chip" data-g="logic" aria-pressed="false"><i style="background:var(--w5)"></i>Logic power · Rail B</button>
+    <button class="chip" data-g="servo" aria-pressed="false"><i style="background:var(--w5)"></i>Servo power · Rail A</button>
+    <button class="chip" data-g="gnd" aria-pressed="false"><i style="background:var(--wgnd)"></i>Ground</button>
+    <button class="chip" data-g="signal" aria-pressed="false"><i style="background:var(--wsig)"></i>Signals</button>
+    <button class="chip" data-g="v12" aria-pressed="false"><i style="background:var(--w12)"></i>12V lock circuit</button>
+  </div>
+
+  <div class="card diagram">
+    <svg id="bb" viewBox="0 0 1280 790" role="img" aria-label="Hole-by-hole breadboard wiring diagram for the ESP32 smart door">
+      <!-- 12V zone -->
+      <rect x="730" y="14" width="536" height="222" rx="10" fill="none" stroke="var(--w12)" stroke-dasharray="6 5" stroke-width="1.5"/>
+      <text class="t" x="1256" y="229" font-size="11" text-anchor="end" style="fill:var(--w12)">12V SIDE · keep off the breadboard</text>
+
+      <!-- Breadboard: holes, rails and labels are generated below -->
+      <rect id="board" x="234" y="248" width="892" height="288" rx="10" fill="var(--bb)" stroke="var(--bb-edge)" stroke-width="2"/>
+      <rect x="254" y="400" width="852" height="12" fill="var(--gap)"/>
+      <g id="rails"></g>
+      <g id="holes"></g>
+      <text class="t" x="1134" y="267" font-size="10.5" font-weight="600">RAIL B</text>
+      <text class="tm" x="1134" y="281" font-size="9.5">logic 5V (ESP32)</text>
+      <text class="t" x="1134" y="517" font-size="10.5" font-weight="600">RAIL A</text>
+      <text class="tm" x="1134" y="531" font-size="9.5">servo 5V (charger)</text>
+      <text class="tm" x="1094" y="409" font-size="8.5" text-anchor="end">GND jumper ↕</text>
+
+      <g id="wires"></g>
+      <g id="labels"></g>
+
+      <!-- ESP32: columns 3–17, top pins in row B, bottom pins in row I -->
+      <g class="part" data-part="esp32">
+        <rect x="268" y="391" width="24" height="30" rx="2" fill="#9aa3ae"/>
+        <rect x="290" y="342" width="220" height="128" rx="6" fill="var(--pcb-esp)"/>
+        <g id="espPins"></g>
+        <text class="th" x="400" y="404" font-size="14" text-anchor="middle">ESP32 DevKit</text>
+        <text class="tp" x="400" y="419" font-size="9" text-anchor="middle" opacity=".8">← USB to laptop</text>
+      </g>
+
+      <!-- On-board parts -->
+      <g class="part" data-part="ledg">
+        <line x1="568" y1="378" x2="624" y2="378" stroke="var(--wdiode)" stroke-width="1.6"/>
+        <rect x="580" y="374.5" width="32" height="7" rx="3" fill="#cdb68a" stroke="#8a7650" stroke-width=".8"/>
+        <rect x="585" y="374.5" width="2.5" height="7" fill="#c62828"/><rect x="590" y="374.5" width="2.5" height="7" fill="#c62828"/><rect x="595" y="374.5" width="2.5" height="7" fill="#6d4c2f"/><rect x="605" y="374.5" width="2.5" height="7" fill="#b8962e"/>
+        <circle cx="631" cy="392" r="7.5" fill="#22a447" stroke="#137a32" stroke-width="1"/>
+        <circle cx="624" cy="392" r="1.8" fill="var(--pin)"/><circle cx="638" cy="392" r="1.8" fill="#55606b"/>
+        <text class="tm" x="603" y="409" font-size="8.5" text-anchor="middle">green · 220Ω</text>
+      </g>
+      <g class="part" data-part="ledr">
+        <line x1="680" y1="378" x2="736" y2="378" stroke="var(--wdiode)" stroke-width="1.6"/>
+        <rect x="692" y="374.5" width="32" height="7" rx="3" fill="#cdb68a" stroke="#8a7650" stroke-width=".8"/>
+        <rect x="697" y="374.5" width="2.5" height="7" fill="#c62828"/><rect x="702" y="374.5" width="2.5" height="7" fill="#c62828"/><rect x="707" y="374.5" width="2.5" height="7" fill="#6d4c2f"/><rect x="717" y="374.5" width="2.5" height="7" fill="#b8962e"/>
+        <circle cx="743" cy="392" r="7.5" fill="#e23b3b" stroke="#9e1f1f" stroke-width="1"/>
+        <circle cx="736" cy="392" r="1.8" fill="var(--pin)"/><circle cx="750" cy="392" r="1.8" fill="#55606b"/>
+        <text class="tm" x="715" y="409" font-size="8.5" text-anchor="middle">red · 220Ω</text>
+      </g>
+      <g class="part" data-part="buzzer">
+        <circle cx="806" cy="386" r="11" fill="var(--pcb-dark)"/><circle cx="806" cy="386" r="3" fill="#555"/>
+        <circle cx="792" cy="378" r="1.8" fill="var(--pin)"/><circle cx="820" cy="378" r="1.8" fill="#55606b"/>
+        <text class="tm" x="806" y="409" font-size="8.5" text-anchor="middle">buzzer</text>
+      </g>
+
+      <!-- Relay -->
+      <g class="part" data-part="relay">
+        <rect x="470" y="60" width="240" height="130" rx="6" fill="var(--pcb-blue)"/>
+        <rect x="490" y="112" width="90" height="46" rx="3" fill="#2f6fc0" stroke="#7fa8dd" stroke-width="1"/>
+        <text class="th" x="485" y="84" font-size="15">Relay module</text>
+        <text class="tp" x="485" y="101" font-size="10" opacity=".85">use channel 1</text>
+        <text class="tp" x="500" y="182" font-size="10" text-anchor="middle">IN1</text>
+        <text class="tp" x="540" y="182" font-size="10" text-anchor="middle">VCC</text>
+        <text class="tp" x="582" y="182" font-size="10" text-anchor="middle">GND</text>
+        <text class="tp" x="695" y="89" font-size="10" text-anchor="end">NO1</text>
+        <text class="tp" x="695" y="114" font-size="10" text-anchor="end">COM1</text>
+        <text class="tp" x="695" y="139" font-size="10" text-anchor="end" opacity=".6">NC1 unused</text>
+        <rect x="703" y="79" width="14" height="12" fill="#3a8a3a"/><rect x="703" y="104" width="14" height="12" fill="#3a8a3a"/><rect x="703" y="129" width="14" height="12" fill="#3a8a3a"/>
+      </g>
+
+      <!-- Solenoid, diode, barrel -->
+      <g class="part" data-part="solenoid">
+        <rect x="880" y="30" width="140" height="40" rx="5" fill="var(--pcb-dark)"/>
+        <text class="tp" x="950" y="54" font-size="11" text-anchor="middle">Solenoid lock</text>
+      </g>
+      <g class="part" data-part="solenoid">
+        <polygon points="935,105 965,96 965,114" fill="var(--wdiode)"/>
+        <line x1="935" y1="96" x2="935" y2="114" stroke="var(--fg)" stroke-width="3"/>
+        <text class="t" x="950" y="89" font-size="9.5" text-anchor="middle">1N4007 · stripe on NO1 side</text>
+      </g>
+      <g class="part" data-part="barrel">
+        <rect x="1080" y="150" width="180" height="55" rx="5" fill="var(--pcb-dark)"/>
+        <text class="tp" x="1170" y="191" font-size="10.5" text-anchor="middle">12V adapter → barrel jack</text>
+        <text class="tp" x="1120" y="168" font-size="13" text-anchor="middle">+</text>
+        <text class="tp" x="1210" y="168" font-size="13" text-anchor="middle">−</text>
+      </g>
+
+      <!-- Fingerprint -->
+      <g class="part" data-part="fp">
+        <rect x="20" y="290" width="180" height="160" rx="8" fill="var(--pcb-dark)"/>
+        <circle cx="80" cy="375" r="28" fill="#151719" stroke="#4b525b" stroke-width="2"/>
+        <text class="th" x="34" y="314" font-size="14">Fingerprint</text>
+        <text class="tp" x="34" y="329" font-size="9.5" opacity=".75">R307 / AS608</text>
+        <text class="tp" x="192" y="309" font-size="10" text-anchor="end">GND</text>
+        <text class="tp" x="192" y="334" font-size="10" text-anchor="end">V+</text>
+        <text class="tp" x="192" y="384" font-size="10" text-anchor="end">TX</text>
+        <text class="tp" x="192" y="409" font-size="10" text-anchor="end">RX</text>
+        <text class="tp" x="34" y="438" font-size="9" opacity=".75">Touch / 3.3VT: not connected</text>
+      </g>
+
+      <!-- OLED -->
+      <g class="part" data-part="oled">
+        <rect x="690" y="640" width="120" height="95" rx="5" fill="var(--pcb-blue)"/>
+        <rect x="708" y="662" width="84" height="40" fill="#06080a"/>
+        <text class="tp" x="720" y="655" font-size="8" text-anchor="middle">VCC</text>
+        <text class="tp" x="740" y="655" font-size="8" text-anchor="middle">GND</text>
+        <text class="tp" x="760" y="655" font-size="8" text-anchor="middle">SDA</text>
+        <text class="tp" x="780" y="655" font-size="8" text-anchor="middle">SCL</text>
+        <text class="th" x="750" y="719" font-size="12" text-anchor="middle">OLED</text>
+        <text class="tp" x="750" y="730" font-size="8.5" text-anchor="middle" opacity=".8">SSD1306</text>
+      </g>
+
+      <!-- Servo -->
+      <g class="part" data-part="servo">
+        <rect x="850" y="680" width="160" height="80" rx="6" fill="var(--pcb-dark)"/>
+        <text class="th" x="930" y="722" font-size="14" text-anchor="middle">MG996R servo</text>
+        <text class="tp" x="930" y="740" font-size="9" text-anchor="middle" opacity=".75">orange · red · brown</text>
+      </g>
+
+      <!-- USB charger cable -->
+      <g class="part" data-part="charger">
+        <line x1="1100" y1="720" x2="1140" y2="720" stroke="#8b939e" stroke-width="16" stroke-linecap="round"/>
+        <rect x="1140" y="698" width="120" height="44" rx="4" fill="#5d6570"/>
+        <text class="th" x="1200" y="725" font-size="13" text-anchor="middle">USB-A plug</text>
+        <text class="tm" x="1100" y="760" font-size="9.5">Type-C end cut off</text>
+        <text class="t" x="1100" y="776" font-size="10">→ wall charger, 5V ≥2A</text>
+      </g>
+
+      <g id="dots"></g>
+    </svg>
+  </div>
+  <div class="info"><span id="info" aria-live="polite">Showing all wires.</span><span id="hole">Hover a hole to see its name.</span></div>
+
+  <div class="cols">
+    <section class="card rules">
+      <h2>Before you power on</h2>
+      <ol>
+        <li><strong>Unplug everything</strong> while you move wires.</li>
+        <li><strong>Rail A + and Rail B + never touch.</strong> Only the two − rails are joined, by the GND jumper in column 60.</li>
+        <li><strong>12V stays off the breadboard.</strong> Barrel + → relay COM1, relay NO1 → solenoid, solenoid → barrel −.</li>
+        <li>The <strong>diode's stripe</strong> goes on the wire coming from NO1.</li>
+        <li>Check the cut USB cable reads <strong>+5V on red</strong> with a multimeter before the servo goes on.</li>
+        <li>Each LED's <strong>long leg</strong> sits in the resistor's column (E26 green, E34 red). The short leg goes one hole to the right.</li>
+        <li>A 30-pin DevKit with pins in <strong>rows B and I</strong> leaves exactly one free hole per pin: row A on top, row J below. A wider 38-pin board only leaves one side free. Use two breadboards or F-M jumpers for that.</li>
+        <li>Many breadboards <strong>split each rail in the middle</strong>. If yours has a break in the red/blue line, bridge it with a short jumper.</li>
+        <li>Pin order on your board and modules may differ from this drawing. <strong>Match the printed labels</strong>, not the positions.</li>
+        <li>Optional: a 470–1000µF capacitor across Rail A + and −, near the servo, striped leg to −.</li>
+      </ol>
+    </section>
+    <section class="card table-card">
+      <h2>Every connection</h2>
+      <div class="tscroll"><table>
+        <thead><tr><th>From</th><th>To</th><th>Hole</th><th></th><th>Note</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table></div>
+    </section>
+  </div>
+</div>
+
+<script>
+(() => {
+  // Grid geometry: column c sits at X(c); rows and rails at Y[name].
+  const X = c => 260 + 14 * c;
+  const Y = { 'T+': 262, 'T-': 276, A: 336, B: 350, C: 364, D: 378, E: 392, F: 420, G: 434, H: 448, I: 462, J: 476, 'B+': 512, 'B-': 526 };
+  const H = n => { const m = /^(T\+|T-|B\+|B-|[A-J])(\d+)$/.exec(n); return [X(+m[2]), Y[m[1]]]; };
+
+  const C = { w5: 'var(--w5)', w33: 'var(--w33)', gnd: 'var(--wgnd)', sig: 'var(--wsig)', w12: 'var(--w12)', d: 'var(--wdiode)' };
+  const GROUPS = { logic: 'Logic power · Rail B', servo: 'Servo power · Rail A', gnd: 'Ground', signal: 'Signals', v12: '12V lock circuit' };
+  // Draw order matters: later wires hop over earlier wires and over the rails.
+  const W = [
+    // signals
+    { g: 'signal', c: 'sig', parts: ['esp32', 'relay'], from: 'Relay IN1', to: 'ESP32 GPIO26', hole: 'A9', pts: [[500,190],[500,205],[X(9),205],H('A9')] },
+    { g: 'signal', c: 'sig', parts: ['esp32', 'buzzer'], from: 'ESP32 GPIO25', to: 'Buzzer +', hole: 'A10 → C38', note: 'buzzer + in D38, longer leg', pts: [H('A10'),[X(10),306],[X(38),306],H('C38')] },
+    { g: 'signal', c: 'sig', parts: ['esp32', 'ledr'], from: 'ESP32 GPIO33', to: '220Ω → red LED', hole: 'A11 → C30', pts: [H('A11'),[X(11),314],[X(30),314],H('C30')] },
+    { g: 'signal', c: 'sig', parts: ['esp32', 'ledg'], from: 'ESP32 GPIO32', to: '220Ω → green LED', hole: 'A12 → C22', pts: [H('A12'),[X(12),322],[X(22),322],H('C22')] },
+    { g: 'signal', c: 'sig', parts: ['esp32', 'fp'], from: 'Fingerprint TX', to: 'ESP32 GPIO16 (RX2)', hole: 'J8', note: 'TX and RX cross', pts: [[200,380],[212,380],[212,604],[X(8),604],H('J8')] },
+    { g: 'signal', c: 'sig', parts: ['esp32', 'fp'], from: 'Fingerprint RX', to: 'ESP32 GPIO17 (TX2)', hole: 'J9', note: 'TX and RX cross', pts: [[200,405],[206,405],[206,616],[X(9),616],H('J9')] },
+    { g: 'signal', c: 'sig', parts: ['esp32', 'oled'], from: 'ESP32 GPIO22', to: 'OLED SCL', hole: 'J16', pts: [H('J16'),[X(16),562],[780,562],[780,640]] },
+    { g: 'signal', c: 'sig', parts: ['esp32', 'oled'], from: 'ESP32 GPIO21', to: 'OLED SDA', hole: 'J13', pts: [H('J13'),[X(13),572],[760,572],[760,640]] },
+    { g: 'signal', c: 'sig', parts: ['esp32', 'servo'], from: 'ESP32 GPIO18', to: 'Servo orange', hole: 'J11', note: 'signal only', pts: [H('J11'),[X(11),546],[900,546],[900,680]] },
+    // logic power
+    { g: 'logic', c: 'w5', parts: ['esp32'], from: 'ESP32 VIN (5V)', to: 'Rail B +', hole: 'A3 → top + 3', pts: [H('A3'),H('T+3')] },
+    { g: 'logic', c: 'w5', parts: ['relay'], from: 'Relay VCC', to: 'Rail B +', hole: 'top + 20', pts: [[540,190],H('T+20')] },
+    { g: 'logic', c: 'w5', parts: ['fp'], from: 'Fingerprint V+', to: 'Rail B +', hole: 'top + 1', note: 'use 3V3 only if your sensor says 3.3V', pts: [[200,330],[228,330],[228,242],[X(1),242],H('T+1')] },
+    { g: 'logic', c: 'w33', parts: ['esp32', 'oled'], from: 'ESP32 3V3', to: 'OLED VCC', hole: 'J3', note: '3.3V, not a 5V rail', pts: [H('J3'),[X(3),592],[720,592],[720,640]] },
+    // ground
+    { g: 'gnd', c: 'gnd', parts: ['esp32'], from: 'ESP32 GND', to: 'Rail B −', hole: 'A4 → top − 4', pts: [H('A4'),H('T-4')] },
+    { g: 'gnd', c: 'gnd', parts: ['relay'], from: 'Relay GND', to: 'Rail B −', hole: 'top − 23', pts: [[582,190],H('T-23')] },
+    { g: 'gnd', c: 'gnd', parts: ['fp'], from: 'Fingerprint GND', to: 'Rail B −', hole: 'top − 2', pts: [[200,305],[218,305],[218,232],[X(2),232],H('T-2')] },
+    { g: 'gnd', c: 'gnd', parts: ['buzzer'], from: 'Buzzer − (D40)', to: 'Rail B −', hole: 'A40 → top − 40', pts: [H('A40'),H('T-40')] },
+    { g: 'gnd', c: 'gnd', parts: ['ledr'], from: 'Red LED short leg (E35)', to: 'Rail B −', hole: 'A35 → top − 35', pts: [H('A35'),H('T-35')] },
+    { g: 'gnd', c: 'gnd', parts: ['ledg'], from: 'Green LED short leg (E27)', to: 'Rail B −', hole: 'A27 → top − 27', pts: [H('A27'),H('T-27')] },
+    { g: 'gnd', c: 'gnd', parts: ['charger', 'servo'], from: 'Rail B −', to: 'Rail A −', hole: 'top − 60 → bottom − 60', note: 'common ground jumper, required', pts: [H('T-60'),H('B-60')] },
+    { g: 'gnd', c: 'gnd', parts: ['oled', 'esp32'], from: 'OLED GND', to: 'ESP32 GND (bottom side)', hole: 'J4', pts: [H('J4'),[X(4),582],[740,582],[740,640]] },
+    // servo power
+    { g: 'servo', c: 'w5', parts: ['charger'], from: 'Charger cable red', to: 'Rail A +', hole: 'bottom + 57', note: 'check +5V with a multimeter first', off: true, pts: [[1100,728],[X(57),728],H('B+57')] },
+    { g: 'servo', c: 'gnd', parts: ['charger'], from: 'Charger cable black', to: 'Rail A −', hole: 'bottom − 58', off: true, pts: [[1100,712],[X(58),712],H('B-58')] },
+    { g: 'servo', c: 'w5', parts: ['servo'], from: 'Servo red', to: 'Rail A +', hole: 'bottom + 47', pts: [[X(47),680],H('B+47')] },
+    { g: 'servo', c: 'gnd', parts: ['servo'], from: 'Servo brown', to: 'Rail A −', hole: 'bottom − 48', pts: [[X(48),680],H('B-48')] },
+    // 12V
+    { g: 'v12', c: 'w12', parts: ['barrel', 'relay'], from: 'Barrel +', to: 'Relay COM1', hole: 'off board', off: true, pts: [[1120,150],[1120,135],[750,135],[750,110],[710,110]] },
+    { g: 'v12', c: 'w12', parts: ['relay', 'solenoid'], from: 'Relay NO1', to: 'Solenoid wire A', hole: 'off board', off: true, pts: [[710,85],[800,85],[800,50],[880,50]] },
+    { g: 'v12', c: 'gnd', parts: ['solenoid', 'barrel'], from: 'Solenoid wire B', to: 'Barrel −', hole: 'off board', off: true, pts: [[1020,50],[1210,50],[1210,150]] },
+    { g: 'v12', c: 'd', parts: ['solenoid'], from: 'Diode stripe (cathode)', to: 'Solenoid wire A', hole: 'off board', note: '1N4007 across the solenoid', off: true, pts: [[935,105],[860,105],[860,50]], junction: [860,50] },
+    { g: 'v12', c: 'd', parts: ['solenoid'], from: 'Diode plain end (anode)', to: 'Solenoid wire B', hole: 'off board', off: true, pts: [[965,105],[1040,105],[1040,50]], junction: [1040,50] },
+  ];
+  // Parts that sit in the board itself (no wire of their own).
+  const PL = [
+    { part: 'esp32', what: 'ESP32 DevKit', hole: 'B3–B17 · I3–I17', note: 'straddles the gap, USB end at column 3; free holes A3–A17 and J3–J17' },
+    { part: 'ledg', what: 'Green LED + 220Ω', hole: 'D22–D26 · E26 / E27', note: 'resistor D22→D26, long leg E26, short leg E27' },
+    { part: 'ledr', what: 'Red LED + 220Ω', hole: 'D30–D34 · E34 / E35', note: 'resistor D30→D34, long leg E34, short leg E35' },
+    { part: 'buzzer', what: 'Active buzzer', hole: 'D38 / D40', note: '+ in D38, − in D40' },
+  ];
+
+  const R = 6, NS = 'http://www.w3.org/2000/svg';
+  const el = (n, a, p) => { const e = document.createElementNS(NS, n); for (const k in a) e.setAttribute(k, a[k]); p && p.appendChild(e); return e; };
+  const txt = (s, a, p) => { const t = el('text', a, p); t.textContent = s; return t; };
+  const between = (v, a, b) => v > Math.min(a, b) + 0.5 && v < Math.max(a, b) - 0.5;
+
+  // Board: rails, holes, labels
+  const railsG = document.getElementById('rails'), holesG = document.getElementById('holes'), labelsG = document.getElementById('labels');
+  const RAIL_Y = [Y['T+'], Y['T-'], Y['B+'], Y['B-']];
+  RAIL_Y.forEach((y, i) => el('line', { x1: X(0) - 6, y1: y, x2: X(60) + 6, y2: y, stroke: i % 2 ? 'var(--wgnd)' : 'var(--w5)', 'stroke-width': 2.5, opacity: .55 }, railsG));
+  for (const r in Y) for (let c = 0; c <= 60; c++)
+    el('rect', { x: X(c) - 1.75, y: Y[r] - 1.75, width: 3.5, height: 3.5, rx: .7, fill: 'var(--hole)' }, holesG);
+  for (let c = 0; c <= 60; c += 5) {
+    txt(String(c), { x: X(c), y: 298, 'font-size': 8, 'text-anchor': 'middle', class: 'lbl' }, labelsG);
+    txt(String(c), { x: X(c), y: 497, 'font-size': 8, 'text-anchor': 'middle', class: 'lbl' }, labelsG);
+  }
+  'ABCDEFGHIJ'.split('').forEach(r => {
+    txt(r, { x: 246, y: Y[r] + 3, 'font-size': 8.5, 'text-anchor': 'middle', class: 'lbl' }, labelsG);
+    txt(r, { x: 1114, y: Y[r] + 3, 'font-size': 8.5, 'text-anchor': 'middle', class: 'lbl' }, labelsG);
+  });
+  for (const r of ['T+', 'T-', 'B+', 'B-']) for (const x of [246, 1114]) {
+    const plus = r[1] === '+';
+    txt(plus ? '+' : '−', { x, y: Y[r] + 4, 'font-size': 12, 'text-anchor': 'middle', class: 't', style: plus ? 'fill:var(--w5)' : '' }, labelsG);
+  }
+
+  // Wires
+  const RAILS = RAIL_Y.map(y => ({ h: true, y, a: X(0) - 6, b: X(60) + 6 }));
+  const segs = [];
+  function pathFor(pts) {
+    let d = `M${pts[0][0]},${pts[0][1]}`;
+    const mine = [];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [x1, y1] = pts[i], [x2, y2] = pts[i + 1], h = y1 === y2;
+      const hops = [];
+      for (const s of [...RAILS, ...segs]) {
+        if (h && !s.h && between(s.x, x1, x2) && between(y1, s.a, s.b)) hops.push(s.x);
+        if (!h && s.h && between(s.y, y1, y2) && between(x1, s.a, s.b)) hops.push(s.y);
+      }
+      const dir = h ? Math.sign(x2 - x1) : Math.sign(y2 - y1);
+      hops.sort((p, q) => (p - q) * dir);
+      const sweep = dir > 0 ? 1 : 0;
+      for (const p of hops) {
+        if (h) d += ` L${p - R * dir},${y1} A${R},${R} 0 0 ${sweep} ${p + R * dir},${y1}`;
+        else d += ` L${x1},${p - R * dir} A${R},${R} 0 0 ${sweep} ${x1},${p + R * dir}`;
+      }
+      d += ` L${x2},${y2}`;
+      mine.push(h ? { h: true, y: y1, a: x1, b: x2 } : { h: false, x: x1, a: y1, b: y2 });
+    }
+    segs.push(...mine);
+    return d;
+  }
+
+  const wiresG = document.getElementById('wires'), dotsG = document.getElementById('dots');
+  W.forEach((w, i) => {
+    const g = el('g', { class: 'wire' + (w.off ? ' off-board' : ''), 'data-i': i }, wiresG);
+    const d = pathFor(w.pts);
+    el('path', { d, class: 'halo', fill: 'none', 'stroke-width': 7, 'stroke-linejoin': 'round' }, g);
+    el('path', { d, class: 'c', fill: 'none', stroke: C[w.c], 'stroke-width': 3, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, g);
+    for (const p of [w.pts[0], w.pts[w.pts.length - 1], w.junction].filter(Boolean))
+      el('circle', { cx: p[0], cy: p[1], r: 3.4, fill: C[w.c], class: 'wire', 'data-i': i }, dotsG);
+    w.node = g;
+  });
+
+  // ESP32 pin headers (USB end on the left, column 3)
+  const TOP = ['VIN','GND','13','12','14','27','26','25','33','32','35','34','VN','VP','EN'];
+  const BOT = ['3V3','GND','15','2','4','16','17','5','18','19','21','RX0','TX0','22','23'];
+  const usedTop = new Set(['VIN','GND','26','25','33','32']), usedBot = new Set(['3V3','GND','16','17','18','21','22']);
+  const pinsG = document.getElementById('espPins');
+  TOP.forEach((n, i) => {
+    const x = X(3 + i), on = usedTop.has(n);
+    el('rect', { x: x - 3.5, y: Y.B - 3.5, width: 7, height: 7, rx: 1.5, fill: on ? 'var(--pin)' : 'var(--pin-off)' }, pinsG);
+    txt(n, { x, y: 366, 'font-size': 7, 'text-anchor': 'middle', class: 'tp', opacity: on ? 1 : .5, 'font-weight': on ? 600 : 400 }, pinsG);
+  });
+  BOT.forEach((n, i) => {
+    const x = X(3 + i), on = usedBot.has(n);
+    el('rect', { x: x - 3.5, y: Y.I - 3.5, width: 7, height: 7, rx: 1.5, fill: on ? 'var(--pin)' : 'var(--pin-off)' }, pinsG);
+    txt(n, { x, y: 453, 'font-size': 7, 'text-anchor': 'middle', class: 'tp', opacity: on ? 1 : .5, 'font-weight': on ? 600 : 400 }, pinsG);
+  });
+
+  // Table
+  const tbody = document.getElementById('rows');
+  const grp = label => { const tr = document.createElement('tr'); tr.className = 'grp'; tr.innerHTML = `<td colspan="5">${label}</td>`; tbody.appendChild(tr); };
+  grp('Parts in the board');
+  PL.forEach((p, i) => {
+    const r = document.createElement('tr'); r.className = 'row'; r.tabIndex = 0; r.dataset.p = i;
+    r.innerHTML = `<td>${p.what}</td><td></td><td class="hole">${p.hole}</td><td></td><td class="note">${p.note}</td>`;
+    tbody.appendChild(r); p.row = r;
+  });
+  for (const g of Object.keys(GROUPS)) {
+    grp(GROUPS[g]);
+    W.forEach((w, i) => {
+      if (w.g !== g) return;
+      const r = document.createElement('tr'); r.className = 'row'; r.tabIndex = 0; r.dataset.i = i;
+      r.innerHTML = `<td>${w.from}</td><td>${w.to}</td><td class="hole">${w.hole}</td><td><span class="sw" style="background:${C[w.c]}"></span></td><td class="note">${w.note || ''}</td>`;
+      tbody.appendChild(r); w.row = r;
+    });
+  }
+
+  // Highlighting
+  const svg = document.getElementById('bb'), info = document.getElementById('info');
+  const chips = [...document.querySelectorAll('.chip')];
+  function apply(match, label, part) {
+    const any = !!match;
+    svg.classList.toggle('filtering', any);
+    svg.querySelectorAll('.wire').forEach(n => n.classList.toggle('hl', any && match(W[+n.dataset.i], +n.dataset.i)));
+    W.forEach((w, i) => w.row.classList.toggle('sel', any && match(w, i)));
+    PL.forEach(p => p.row.classList.toggle('sel', !!part && p.part === part));
+    info.innerHTML = label;
+  }
+  function setChip(g) { chips.forEach(c => c.setAttribute('aria-pressed', String(c.dataset.g === g))); }
+  chips.forEach(c => c.addEventListener('click', () => {
+    const g = c.dataset.g; setChip(g);
+    if (g === 'all') apply(null, 'Showing all wires.');
+    else apply(w => w.g === g, `Highlighting <b>${GROUPS[g]}</b>.`);
+  }));
+  const NAMES = { esp32: 'ESP32', relay: 'Relay module', solenoid: 'Solenoid + diode', barrel: '12V adapter', fp: 'Fingerprint sensor', buzzer: 'Buzzer', ledr: 'Red LED', ledg: 'Green LED', oled: 'OLED', servo: 'Servo', charger: 'USB charger cable' };
+  const pickPart = k => {
+    setChip(null);
+    const n = W.filter(w => w.parts.includes(k)).length;
+    apply(w => w.parts.includes(k), `<b>${NAMES[k]}</b>: ${n} wire${n === 1 ? '' : 's'}. Click a colour chip or “All wires” to reset.`, k);
+  };
+  svg.querySelectorAll('.part').forEach(p => p.addEventListener('click', () => pickPart(p.dataset.part)));
+  const pick = r => {
+    if (r.dataset.p !== undefined) return pickPart(PL[+r.dataset.p].part);
+    const i = +r.dataset.i, w = W[i]; setChip(null);
+    apply((_, j) => j === i, `<b>${w.from}</b> → <b>${w.to}</b> · ${w.hole}${w.note ? ' · ' + w.note : ''}`);
+  };
+  tbody.addEventListener('click', e => { const r = e.target.closest('tr.row'); r && pick(r); });
+  tbody.addEventListener('keydown', e => { const r = e.target.closest('tr.row'); if (r && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); pick(r); } });
+  svg.addEventListener('click', e => { if (e.target.closest('.part')) return; const n = e.target.closest('.wire'); if (n) pick(W[+n.dataset.i].row); });
+
+  // Hole names on hover
+  const holeOut = document.getElementById('hole');
+  const RAIL_NAME = { 'T+': 'Top + rail', 'T-': 'Top − rail', 'B+': 'Bottom + rail', 'B-': 'Bottom − rail' };
+  svg.addEventListener('mousemove', e => {
+    const m = svg.getScreenCTM(); if (!m) return;
+    const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse());
+    const c = Math.round((p.x - 260) / 14);
+    const r = Object.keys(Y).find(k => Math.abs(Y[k] - p.y) <= 6);
+    if (r && c >= 0 && c <= 60 && Math.abs(X(c) - p.x) <= 6)
+      holeOut.innerHTML = RAIL_NAME[r] ? `<b>${RAIL_NAME[r]}</b> · column ${c}` : `Hole <b>${r}${c}</b>`;
+  });
+})();
+</script>

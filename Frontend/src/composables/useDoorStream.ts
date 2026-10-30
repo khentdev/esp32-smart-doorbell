@@ -2,11 +2,12 @@ import { readonly, ref } from 'vue'
 import { API_URL } from '@/api/axios/axiosConfig'
 import { authService } from '@/stores/auth/service'
 import { useDashboardStore } from '@/stores/dashboard/dashboardStore'
+import { useFingerprintStore } from '@/stores/fingerprints/fingerprintStore'
 import { useSoundStore } from '@/stores/settings/soundStore'
 import { useToast, type ToastKind } from '@/composables/Toast'
 import { getFingerprint } from '@/utils/getFingerprint'
 import { formatDateTime } from '@/utils/formatDate'
-import type { AccessEventDTO, AccessOutcome } from '@/types/api'
+import type { AccessEventDTO, AccessOutcome, FingerprintJobEventDTO } from '@/types/api'
 
 export type StreamStatus = 'connecting' | 'live' | 'disconnected'
 
@@ -25,16 +26,18 @@ let starting = false
 
 export function useDoorStream() {
   const dashboard = useDashboardStore()
+  const fingerprints = useFingerprintStore()
   const sound = useSoundStore()
   const toast = useToast()
 
   function handleEvent(event: AccessEventDTO) {
     if (!dashboard.applyEvent(event)) return
     const { kind, title } = toastFor[event.outcome]
+    const who = event.fingerprintName ? `${event.fingerprintName} · ` : ''
     toast.show({
       kind,
       title,
-      message: `${event.deviceLabel} · ${formatDateTime(event.timestamp)}`,
+      message: `${who}${event.deviceLabel} · ${formatDateTime(event.timestamp)}`,
     })
     sound.playSaved()
   }
@@ -58,7 +61,10 @@ export function useDoorStream() {
         failures = 0
         status.value = 'live'
         // Reconnect: catch up through REST, no replay toasts.
-        if (hasOpened) void dashboard.fetchSummary({ silent: true })
+        if (hasOpened) {
+          void dashboard.fetchSummary({ silent: true })
+          if (fingerprints.hasLoaded) void fingerprints.fetch({ silent: true })
+        }
         hasOpened = true
       }
 
@@ -71,6 +77,12 @@ export function useDoorStream() {
 
       es.addEventListener('access', (msg) => {
         handleEvent(JSON.parse((msg as MessageEvent<string>).data) as AccessEventDTO)
+      })
+
+      es.addEventListener('fingerprint', (msg) => {
+        fingerprints.applyJobEvent(
+          JSON.parse((msg as MessageEvent<string>).data) as FingerprintJobEventDTO,
+        )
       })
     } finally {
       starting = false

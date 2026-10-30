@@ -54,6 +54,16 @@ Legend: `[x]` done · `[ ]` todo · each backend task lists its test cases; each
 - [x] Docs cross-checked and aligned: [[System Design Documentation]] (JWT claims, device map), [[System Documentation]] (rate-limit bullet moved to Auth), [[Wireframe & Flows]] (three toast outcomes), `doc-update-task.md` marked historical
 - [x] Full suite green: `bun run test` (129 passing), `tsc --noEmit` clean
 
+### B8. Fingerprint management (session + API key)
+- [x] Prisma contract: `Fingerprint`, `FingerprintJob` models, `AccessEvent.fingerprintName` + migration
+- [x] Add `FINGERPRINT_JOB_TIMEOUT_SECONDS` (default 120) to `env.ts` and `.env.example`
+- [x] New `features/fingerprints/`: `GET /fingerprints`, `POST /fingerprints`, `PATCH /fingerprints/:id`, `DELETE /fingerprints/:id`
+- [x] `GET /door/commands`: unlock first, else atomically claim the oldest `PENDING` job → `ENROLL`/`DELETE`
+- [x] `POST /door/jobs/:jobId/progress`: steps, `SUCCEEDED` (insert/remove `Fingerprint` in one transaction), `FAILED`
+- [x] Expiry on read: `PENDING` past TTL → `EXPIRED`; `SENT` past timeout → `FAILED`/`DEVICE_TIMEOUT`
+- [x] SSE `fingerprint` event on every job change; `POST /door/access` stores `fingerprintName`
+- [x] Tests: lowest-free slot + full sensor; one active job → 409; name taken (case-insensitive) → 409; poll priority (unlock before job) and single delivery; both expiries; enroll/delete success + failure; failed delete keeps the row; progress on a finished job → 409; rename; name snapshot survives rename; auth on every route
+
 ---
 
 ## Frontend (Vue dashboard)
@@ -90,9 +100,22 @@ Depends on the backend task named in brackets.
 - [x] Empty / loading / error states
 - [x] Responsive layout check
 
+### F7. Settings → Fingerprints [B8]
+- [x] Types from [[API Contract]] §1 (`FingerprintDTO`, `FingerprintJobDTO`, `fingerprintName`, new error codes)
+- [x] Fingerprint store + service; SSE `fingerprint` listener; refetch on reconnect
+- [x] List with rename and delete (confirm); add form with live steps, failure reasons, retry
+- [x] History rows and toasts show the person's name (fallback "Slot N")
+
+### Firmware
+- [x] `app`: handle `ENROLL`/`DELETE` commands, report steps via `POST /door/jobs/:jobId/progress`, 20 s per-step timeout
+- [x] Replace `enroll` env with `wipe-fingerprints` (one-time sensor reset)
+
 ---
 
 ## End-to-end checks
+- [ ] Settings → add a person → steps show live on the dashboard and OLED → person listed → their scan shows their name
+- [ ] Remove a person → the sensor slot is wiped → their scan is denied
+- [ ] Offline ESP32: an enroll request expires and does not start on reconnect
 - [ ] Dashboard unlock → ESP32 polls (B3) → `ADMIN_UNLOCK` reported (B4) → appears live on dashboard (B6/F5)
 - [ ] Fingerprint granted/denied on device → appears live and in summary counts
 - [ ] Offline ESP32: stale unlock expires and does not fire on reconnect

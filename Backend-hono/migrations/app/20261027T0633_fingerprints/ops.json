@@ -1,0 +1,242 @@
+[
+  {
+    "id": "table.Fingerprint",
+    "label": "Create table \"Fingerprint\"",
+    "summary": "Creates table \"Fingerprint\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "Fingerprint"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"Fingerprint\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"Fingerprint\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"Fingerprint\"",
+        "sql": "CREATE TABLE \"public\".\"Fingerprint\" (\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"deviceId\" text NOT NULL,\n  \"id\" uuid NOT NULL,\n  \"name\" text NOT NULL,\n  \"slot\" int4 NOT NULL,\n  \"updatedAt\" timestamptz NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"Fingerprint\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"Fingerprint\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.FingerprintJob",
+    "label": "Create table \"FingerprintJob\"",
+    "summary": "Creates table \"FingerprintJob\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "FingerprintJob"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"FingerprintJob\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"FingerprintJob\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"FingerprintJob\"",
+        "sql": "CREATE TABLE \"public\".\"FingerprintJob\" (\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"deviceId\" text NOT NULL,\n  \"error\" text,\n  \"fingerprintId\" uuid,\n  \"id\" uuid NOT NULL,\n  \"name\" text NOT NULL,\n  \"sentAt\" timestamptz,\n  \"slot\" int4 NOT NULL,\n  \"status\" text NOT NULL,\n  \"step\" text,\n  \"type\" text NOT NULL,\n  \"updatedAt\" timestamptz NOT NULL,\n  PRIMARY KEY (\"id\"),\n  CONSTRAINT \"FingerprintJob_status_check_5852f12a\" CHECK (\"status\" IN ('PENDING', 'SENT', 'SUCCEEDED', 'FAILED', 'EXPIRED')),\n  CONSTRAINT \"FingerprintJob_type_check_6410af27\" CHECK (\"type\" IN ('ENROLL', 'DELETE'))\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"FingerprintJob\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"FingerprintJob\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.AccessEvent.fingerprintName",
+    "label": "Add column \"fingerprintName\" to \"AccessEvent\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "fingerprintName",
+        "table": "AccessEvent"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"fingerprintName\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "AccessEvent",
+          "fingerprintName"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"fingerprintName\"",
+        "sql": "ALTER TABLE \"public\".\"AccessEvent\" ADD COLUMN \"fingerprintName\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"fingerprintName\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "AccessEvent",
+          "fingerprintName"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.Fingerprint.Fingerprint_deviceId_slot_key",
+    "label": "Add unique constraint on \"Fingerprint\" (deviceId, slot)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "Fingerprint_deviceId_slot_key",
+        "table": "Fingerprint"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"Fingerprint_deviceId_slot_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "Fingerprint_deviceId_slot_key",
+          "public",
+          "\"public\".\"Fingerprint\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"Fingerprint_deviceId_slot_key\"",
+        "sql": "ALTER TABLE \"public\".\"Fingerprint\" ADD CONSTRAINT \"Fingerprint_deviceId_slot_key\" UNIQUE (\"deviceId\", \"slot\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"Fingerprint_deviceId_slot_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "Fingerprint_deviceId_slot_key",
+          "public",
+          "\"public\".\"Fingerprint\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.FingerprintJob.FingerprintJob_deviceId_status_idx_bb11af39",
+    "label": "Create index \"FingerprintJob_deviceId_status_idx_bb11af39\" on \"FingerprintJob\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "FingerprintJob_deviceId_status_idx_bb11af39",
+        "table": "FingerprintJob"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"FingerprintJob_deviceId_status_idx_bb11af39\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"FingerprintJob_deviceId_status_idx_bb11af39\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"FingerprintJob_deviceId_status_idx_bb11af39\"",
+        "sql": "CREATE INDEX \"FingerprintJob_deviceId_status_idx_bb11af39\" ON \"public\".\"FingerprintJob\" (\"deviceId\", \"status\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"FingerprintJob_deviceId_status_idx_bb11af39\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"FingerprintJob_deviceId_status_idx_bb11af39\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.FingerprintJob.fingerprint_job_one_active_ea702928",
+    "label": "Create index \"fingerprint_job_one_active_ea702928\" on \"FingerprintJob\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "fingerprint_job_one_active_ea702928",
+        "table": "FingerprintJob"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"fingerprint_job_one_active_ea702928\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"fingerprint_job_one_active_ea702928\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"fingerprint_job_one_active_ea702928\"",
+        "sql": "CREATE UNIQUE INDEX \"fingerprint_job_one_active_ea702928\" ON \"public\".\"FingerprintJob\" (\"deviceId\") WHERE ((\"status\" IN ('PENDING', 'SENT')))",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"fingerprint_job_one_active_ea702928\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"fingerprint_job_one_active_ea702928\""
+        ]
+      }
+    ]
+  }
+]

@@ -6,23 +6,24 @@
 [Fingerprint Sensor] --UART--> [ESP32] --I2C--> [OLED]
                                    |----GPIO----> [Buzzer + LEDs]
                                    |----GPIO----> [Relay] --12V (separate supply)--> [Solenoid Lock]
-                                   |----PWM (direct)-----------------------------> [MG996R Servo]
+                                   |----PWM (direct)-----------------------------> [MG996R Servo] <--5V (separate USB charger)
                                    |
                                    |  POST /door/access (API key) -------\
                                    |  GET  /door/commands (API key, poll ~3s) <---\
+                                   |  POST /door/jobs/:jobId/progress (API key)      |
                                    v                                                   |
                               [Hono Backend] ---- Prisma ---- [PostgreSQL]             |
                                    |                    ^                              |
-                                   | SSE (broadcast on new access event)               |
-                                   v                    | POST /door/unlock        |
+                                   | SSE (access + fingerprint events)                 |
+                                   v                    | POST /door/unlock, /fingerprints*
                               [Vue Dashboard] -----------(session + CSRF)--------------/
 ```
 
 - **Fingerprint Sensor** — the sole biometric input trigger. Captures and matches a scan against templates stored on its own onboard flash, and reports match/no-match to the ESP32 over UART. Replaces the push button.
-- **ESP32** — reads the scan result, drives the two actuators on a match (relay → solenoid unlock, then servo open/close), shows status on the OLED and buzzer/LEDs throughout, and sends a minimal HTTPS POST to the backend with an API key reporting the outcome. It also polls the backend every ~3 seconds for a pending admin-unlock command and runs the same actuator sequence if one is found. It holds no state and does no timestamping.
-- **Hono Backend** — receives the access event, stamps the timestamp, persists it via Prisma to PostgreSQL, resolves the device label from a static config map, and broadcasts the event to any connected dashboard clients over SSE. No debounce step. Also accepts admin-unlock requests from the dashboard and queues them for the ESP32 to pick up on its next poll.
-- **PostgreSQL** — stores the access event history (source of truth) and the single pending-unlock flag per device. Fingerprint templates are never stored here — they live only on the sensor's onboard flash.
-- **Vue Dashboard** — loads existing state on mount via REST, then subscribes to SSE for live updates (toast + sound + stat/history updates) for the rest of the session. Also exposes an "Unlock Door" action that requests a manual unlock independent of the fingerprint sensor.
+- **ESP32** — reads the scan result, drives the two actuators on a match (relay → solenoid unlock, then servo open/close), shows status on the OLED and buzzer/LEDs throughout, and sends a minimal HTTPS POST to the backend with an API key reporting the outcome. It also polls the backend every ~3 seconds for a pending command — an admin unlock (runs the same actuator sequence), or a fingerprint enroll/delete job (runs the enrollment prompts or wipes a slot, reporting each step back). It holds no state and does no timestamping.
+- **Hono Backend** — receives the access event, stamps the timestamp, persists it via Prisma to PostgreSQL, resolves the device label from a static config map, and broadcasts the event to any connected dashboard clients over SSE. No debounce step. Also accepts admin-unlock requests and fingerprint enroll/rename/delete requests from the dashboard, queues device work for the ESP32's next poll, and relays the device's enrollment progress to the dashboard over SSE.
+- **PostgreSQL** — stores the access event history (source of truth), the single pending-unlock flag per device, the enrolled people (name ↔ sensor slot), and fingerprint jobs. Fingerprint templates are never stored here — they live only on the sensor's onboard flash.
+- **Vue Dashboard** — loads existing state on mount via REST, then subscribes to SSE for live updates (toast + sound + stat/history updates) for the rest of the session. Also exposes an "Unlock Door" action that requests a manual unlock independent of the fingerprint sensor, and a Settings → Fingerprints section to enroll, name, list, and delete people.
 
 See [[API & Database Reference]] for the database schema, endpoint list, request/response contracts, route protection rules, and security requirements.
 
@@ -35,7 +36,7 @@ See [[API & Database Reference]] for the database schema, endpoint list, request
 3. **Match:** ESP32 triggers the relay → solenoid releases; after the lock fully releases, the servo swings the door open; after a hold period, the servo closes the door and the solenoid re-locks. OLED/buzzer/LED show "Access granted" throughout.
 4. **No match:** no physical actuation occurs. OLED/buzzer/LED show "Access denied".
 5. Either way, ESP32 sends `POST /door/access` over HTTPS with `X-API-Key` and body `{ "deviceId": "front_gate", "outcome": "GRANTED" | "DENIED", "fingerprintSlot": <number | omitted> }` (`fingerprintSlot` present only when `outcome` is `GRANTED`).
-6. Backend validates the API key (constant-time compare), generates the timestamp server-side (UTC), inserts a row into the `accessEvents` table, resolves `deviceLabel` from the static config map, and broadcasts the event to all connected SSE clients. No debounce step — every scan result is recorded.
+6. Backend validates the API key (constant-time compare), generates the timestamp server-side (UTC), looks up the enrolled person's name for `fingerprintSlot` (stored on the event as `fingerprintName`, a snapshot), inserts a row into the `accessEvents` table, resolves `deviceLabel` from the static config map, and broadcasts the event to all connected SSE clients. No debounce step — every scan result is recorded.
 7. Dashboard receives the SSE event, shows a toast styled by outcome (with sound), updates stat cards, and prepends the entry to the history list.
 
 **Admin manual unlock (dashboard → hardware)**
@@ -50,13 +51,21 @@ See [[API & Database Reference]] for the database schema, endpoint list, request
 
 Delivery is fire-and-forget: if the ESP32 is slow to poll, the request waits in `pendingUnlockAt` for at most the TTL (60s by default). If the ESP32 is offline longer than that, the request expires and is discarded on the next poll — there is no retry or notification back to the admin, who simply clicks "Unlock Door" again.
 
-**Fingerprint enrollment (local, offline)**
+**Fingerprint enrollment (dashboard → hardware → dashboard)**
 
-1. Owner connects a laptop to the ESP32 over USB-serial while physically present at the device.
-2. Owner triggers the enrollment routine directly on the device — no network, backend, or dashboard involvement.
-3. OLED prompts "Place finger" → user scans → OLED prompts "Remove finger" → OLED prompts "Place same finger again" → user scans again.
-4. Sensor stores the resulting template in the next available onboard flash slot; OLED/buzzer confirm success or prompt a retry on failure.
-5. No access event is generated and no request reaches the backend — enrollment never touches PostgreSQL.
+1. Admin opens Settings → Fingerprints, types the person's name, and clicks "Add fingerprint".
+2. Dashboard sends `POST /fingerprints` (session + CSRF + fingerprint) with `{ "deviceId": "front_gate", "name": "Juan" }`. Backend picks the lowest free sensor slot (1–127), creates a `PENDING` `ENROLL` job in `fingerprintJobs`, responds `202`, and broadcasts the job over SSE.
+3. On its next poll, ESP32 calls `GET /door/commands`. With no pending unlock, the backend atomically claims the job (`PENDING` → `SENT`) and returns `{ "command": "ENROLL", "jobId", "slot" }`.
+4. ESP32 runs the enrollment prompts on the OLED — "Place finger" → "Remove finger" → "Place same finger again" — and reports each step to `POST /door/jobs/:jobId/progress`. The backend relays every step to the dashboard over SSE, so Settings shows the same prompts live.
+5. Sensor merges the two scans and stores the template in the assigned slot. ESP32 reports `SUCCEEDED` (or `FAILED` with `MISMATCH`, `TIMEOUT`, `BAD_IMAGE`, `STORE_FAILED`).
+6. On success the backend inserts the `fingerprints` row (slot ↔ name) in the same transaction that marks the job `SUCCEEDED`. No access event is generated — enrollment is not an access attempt.
+
+**Fingerprint delete / rename**
+
+- **Delete:** `DELETE /fingerprints/:id` creates a `DELETE` job for that slot; the ESP32 picks it up on its next poll, wipes the slot (`deleteModel`), and reports the result. The `fingerprints` row is removed only after the device confirms, so a failed delete leaves the person listed.
+- **Rename:** `PATCH /fingerprints/:id` changes the name in PostgreSQL only — the sensor stores no names, so the device is not involved. Past access events keep the name they had at scan time.
+
+Only one fingerprint job per device can be active (`PENDING` or `SENT`) at a time. A job nobody picks up within `UNLOCK_COMMAND_TTL_SECONDS` (60s — the ESP32 is offline) becomes `EXPIRED`; a picked-up job with no final report within `FINGERPRINT_JOB_TIMEOUT_SECONDS` (120s — the ESP32 lost power or WiFi mid-flow) becomes `FAILED` with `DEVICE_TIMEOUT`. Both are computed whenever jobs are read or polled; there is no background timer.
 
 **Dashboard load (on mount)**
 
@@ -88,9 +97,15 @@ Delivery is fire-and-forget: if the ESP32 is slow to poll, the request waits in 
 | Fingerprint templates stored on the sensor's onboard flash, not PostgreSQL | Templates are proprietary binary data matched entirely on the sensor itself. Duplicating them in Postgres would add complexity with no feature depending on it, and keeps biometric data off the server. |
 | Servo driven directly by ESP32 GPIO, no relay | The servo takes a logic-level PWM signal only. A relay is needed solely to switch the solenoid's separate 12V/higher-current circuit, which GPIO cannot drive directly. |
 | Solenoid driven through a relay on a separate 12V supply | ESP32 GPIO cannot supply the solenoid's 12V/0.6A draw. The relay isolates logic-level control from the power circuit. |
-| Fingerprint enrollment is local/offline via USB-serial, not dashboard-triggered | MVP scope is 1–2 enrolled fingers with no multi-user management UI. A remote-enrollment endpoint and backend→device command channel would be new architecture for a feature used only a handful of times total. |
+| Fingerprint enrollment triggered from the dashboard, not over USB-serial | Originally local/offline only. Changed so the owner can add, name, and remove people without a laptop at the door. It reuses the existing poll channel (`GET /door/commands`) rather than adding a push connection, and the person still has to be physically at the sensor to scan. |
+| Sensor slot chosen by the backend (lowest free, 1–127) | The admin never handles slot numbers, and an existing person can't be overwritten by typing the wrong number. |
+| Enrolled people stored as name ↔ slot in PostgreSQL; templates stay on the sensor | Names are what the owner reads in history; the biometric template still never leaves the sensor. |
+| `fingerprintName` snapshot on each access event | History stays truthful after a person is renamed or deleted and their slot is reused. |
+| Fingerprint work modeled as a `fingerprintJobs` table with a status | Enrollment is multi-step and reports progress, success, or a failure reason — a single timestamp can't hold that. One active job per device keeps it simple. |
+| Job expiry computed on read, not by a background timer | Same approach as the unlock TTL: no scheduler, and a stuck job resolves itself the next time the dashboard or the ESP32 asks. |
+| Enroll/delete use session + CSRF + fingerprint, no re-confirmation | Same trust level as `POST /door/unlock`, which can already open the door. |
 | Admin unlock delivered via ESP32 polling, not a push/WebSocket channel | Keeps the ESP32's communication model symmetric — plain HTTP requests only, same as `/door/access`. A persistent connection (WebSocket, reverse-SSE) would be new infrastructure for a feature that's used occasionally, not continuously. |
-| Pending unlock modeled as a single nullable timestamp per device, not a generic command queue | Only one command type exists today (`UNLOCK`). A queue/table of typed commands would be unused generality for a single-device MVP with no concurrent commands. |
+| Pending unlock stays a single nullable timestamp per device | `UNLOCK` has no steps or result to track, so it keeps its simple atomic-consume model. It always takes priority over a pending fingerprint job on the same poll. |
 | Unlock command consumed at poll time, not at confirmed execution | Fire-and-forget, the same precedent as missed SSE events not being replayed. Acceptable risk for an occasional manual-override path at this MVP scale — if the ESP32 is mid-poll-cycle when it loses power, the admin can simply click "Unlock Door" again. |
 | Unlock command consumed atomically and expires after `UNLOCK_COMMAND_TTL_SECONDS` (60s) | The timestamp is already stored, so a TTL costs nothing. Without it, a click made while the ESP32 is offline would open the door unexpectedly whenever it reconnects. Atomic consume (single `UPDATE ... RETURNING`) stops overlapping polls from both receiving `UNLOCK`. |
 | No login rate limiting or lockout | The API is deployed privately and is not publicly exposed, with one admin account. Accepted MVP limitation; revisit before any public exposure. |
@@ -137,8 +152,9 @@ This system is scoped as a single-user, single-device MVP, not a production or s
 - No cross-device sync for sound preferences (client-side storage only)
 - No role-based access control — a single fixed admin account is the only user
 - No paginated history — dashboard shows the last 30 entries only
-- No remote/dashboard-triggered fingerprint enrollment — enrollment is a local, physical-access-only operation performed directly on the device via USB-serial
-- No multi-user management UI — MVP scope is 1–2 enrolled fingers (house owner, maybe one family member)
+- No multiple fingers per person — each enrolled person is one finger in one sensor slot
+- No dashboard accounts for enrolled people — they only open the door; the single admin manages them
+- No enrollment job queue — one fingerprint job per device at a time; a second request is rejected until the first finishes
 - No automatic data retention/cleanup — `accessEvents` is never pruned; the 30-entry cap applies to the dashboard display only
 - No real-time push to the ESP32 — admin-unlock command delivery is poll-based with ~3s latency, not instant
 - No login rate limiting or lockout — acceptable only while the deployment stays private (not publicly exposed)
@@ -149,7 +165,7 @@ Two middleware paths — do not reuse `authenticate` for SSE.
 
 | Middleware | Used on | Validates |
 | --- | --- | --- |
-| `authenticate` | REST: `/session/me`, `/session/logout`, `/dashboard/summary`, `/door/unlock` | Signed `sid` cookie, `X-CSRF-Token` header matches `csrfToken` cookie, `X-Fingerprint` header matches JWT `deviceHash`, JWT not expired |
+| `authenticate` | REST: `/session/me`, `/session/logout`, `/dashboard/summary`, `/door/unlock`, `/fingerprints*` | Signed `sid` cookie, `X-CSRF-Token` header matches `csrfToken` cookie, `X-Fingerprint` header matches JWT `deviceHash`, JWT not expired |
 | `authenticateSse` | SSE: `/door/stream` | Signed `sid` cookie, `fingerprint` query param matches JWT `deviceHash`, JWT not expired. No CSRF. |
 
 **Related Docs: [[System Documentation]] & [[Wireframe & Flows]] & [[API & Database Reference]]**

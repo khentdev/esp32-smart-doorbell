@@ -12,6 +12,14 @@
       "model": "DeviceCommand",
       "namespace": "public"
     },
+    "Fingerprint": {
+      "model": "Fingerprint",
+      "namespace": "public"
+    },
+    "FingerprintJob": {
+      "model": "FingerprintJob",
+      "namespace": "public"
+    },
     "User": {
       "model": "User",
       "namespace": "public"
@@ -37,6 +45,44 @@
                 "value": "ADMIN_UNLOCK"
               }
             ]
+          },
+          "FingerprintJobStatus": {
+            "codecId": "pg/text@1",
+            "members": [
+              {
+                "name": "PENDING",
+                "value": "PENDING"
+              },
+              {
+                "name": "SENT",
+                "value": "SENT"
+              },
+              {
+                "name": "SUCCEEDED",
+                "value": "SUCCEEDED"
+              },
+              {
+                "name": "FAILED",
+                "value": "FAILED"
+              },
+              {
+                "name": "EXPIRED",
+                "value": "EXPIRED"
+              }
+            ]
+          },
+          "FingerprintJobType": {
+            "codecId": "pg/text@1",
+            "members": [
+              {
+                "name": "ENROLL",
+                "value": "ENROLL"
+              },
+              {
+                "name": "DELETE",
+                "value": "DELETE"
+              }
+            ]
           }
         },
         "models": {
@@ -44,6 +90,13 @@
             "fields": {
               "deviceId": {
                 "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "fingerprintName": {
+                "nullable": true,
                 "type": {
                   "codecId": "pg/text@1",
                   "kind": "scalar"
@@ -89,6 +142,9 @@
               "fields": {
                 "deviceId": {
                   "column": "deviceId"
+                },
+                "fingerprintName": {
+                  "column": "fingerprintName"
                 },
                 "fingerprintSlot": {
                   "column": "fingerprintSlot"
@@ -136,6 +192,220 @@
               },
               "namespaceId": "public",
               "table": "DeviceCommand"
+            }
+          },
+          "Fingerprint": {
+            "fields": {
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "kind": "scalar"
+                }
+              },
+              "deviceId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "name": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "slot": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "updatedAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {},
+            "storage": {
+              "fields": {
+                "createdAt": {
+                  "column": "createdAt"
+                },
+                "deviceId": {
+                  "column": "deviceId"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "name": {
+                  "column": "name"
+                },
+                "slot": {
+                  "column": "slot"
+                },
+                "updatedAt": {
+                  "column": "updatedAt"
+                }
+              },
+              "namespaceId": "public",
+              "table": "Fingerprint"
+            }
+          },
+          "FingerprintJob": {
+            "fields": {
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "kind": "scalar"
+                }
+              },
+              "deviceId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "error": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "fingerprintId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "name": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "sentAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "kind": "scalar"
+                }
+              },
+              "slot": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "status": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                },
+                "valueSet": {
+                  "entityKind": "enum",
+                  "entityName": "FingerprintJobStatus",
+                  "namespaceId": "public",
+                  "plane": "domain"
+                }
+              },
+              "step": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "type": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                },
+                "valueSet": {
+                  "entityKind": "enum",
+                  "entityName": "FingerprintJobType",
+                  "namespaceId": "public",
+                  "plane": "domain"
+                }
+              },
+              "updatedAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {},
+            "storage": {
+              "fields": {
+                "createdAt": {
+                  "column": "createdAt"
+                },
+                "deviceId": {
+                  "column": "deviceId"
+                },
+                "error": {
+                  "column": "error"
+                },
+                "fingerprintId": {
+                  "column": "fingerprintId"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "name": {
+                  "column": "name"
+                },
+                "sentAt": {
+                  "column": "sentAt"
+                },
+                "slot": {
+                  "column": "slot"
+                },
+                "status": {
+                  "column": "status"
+                },
+                "step": {
+                  "column": "step"
+                },
+                "type": {
+                  "column": "type"
+                },
+                "updatedAt": {
+                  "column": "updatedAt"
+                }
+              },
+              "namespaceId": "public",
+              "table": "FingerprintJob"
             }
           },
           "User": {
@@ -222,6 +492,11 @@
                   "nativeType": "text",
                   "nullable": false
                 },
+                "fingerprintName": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
                 "fingerprintSlot": {
                   "codecId": "pg/int4@1",
                   "nativeType": "int4",
@@ -293,6 +568,178 @@
               },
               "uniques": []
             },
+            "Fingerprint": {
+              "columns": {
+                "createdAt": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                },
+                "deviceId": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "id": {
+                  "codecId": "pg/uuid@1",
+                  "nativeType": "uuid",
+                  "nullable": false
+                },
+                "name": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "slot": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "updatedAt": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [],
+              "indexes": [],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": [
+                {
+                  "columns": [
+                    "deviceId",
+                    "slot"
+                  ]
+                }
+              ]
+            },
+            "FingerprintJob": {
+              "checks": [
+                {
+                  "expression": "\"status\" IN ('PENDING', 'SENT', 'SUCCEEDED', 'FAILED', 'EXPIRED')",
+                  "name": "FingerprintJob_status_check_5852f12a",
+                  "prefix": "FingerprintJob_status_check"
+                },
+                {
+                  "expression": "\"type\" IN ('ENROLL', 'DELETE')",
+                  "name": "FingerprintJob_type_check_6410af27",
+                  "prefix": "FingerprintJob_type_check"
+                }
+              ],
+              "columns": {
+                "createdAt": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                },
+                "deviceId": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "error": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "fingerprintId": {
+                  "codecId": "pg/uuid@1",
+                  "nativeType": "uuid",
+                  "nullable": true
+                },
+                "id": {
+                  "codecId": "pg/uuid@1",
+                  "nativeType": "uuid",
+                  "nullable": false
+                },
+                "name": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "sentAt": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "nativeType": "timestamptz",
+                  "nullable": true
+                },
+                "slot": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "status": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false,
+                  "valueSet": {
+                    "entityKind": "valueSet",
+                    "entityName": "FingerprintJobStatus",
+                    "namespaceId": "public",
+                    "plane": "storage"
+                  }
+                },
+                "step": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "type": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false,
+                  "valueSet": {
+                    "entityKind": "valueSet",
+                    "entityName": "FingerprintJobType",
+                    "namespaceId": "public",
+                    "plane": "storage"
+                  }
+                },
+                "updatedAt": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [],
+              "indexes": [
+                {
+                  "columns": [
+                    "deviceId",
+                    "status"
+                  ],
+                  "name": "FingerprintJob_deviceId_status_idx_bb11af39",
+                  "prefix": "FingerprintJob_deviceId_status_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "deviceId"
+                  ],
+                  "name": "fingerprint_job_one_active_ea702928",
+                  "prefix": "fingerprint_job_one_active",
+                  "unique": true,
+                  "where": "(\"status\" IN ('PENDING', 'SENT'))"
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": []
+            },
             "User": {
               "columns": {
                 "createdAt": {
@@ -349,6 +796,23 @@
                 "DENIED",
                 "ADMIN_UNLOCK"
               ]
+            },
+            "FingerprintJobStatus": {
+              "kind": "valueSet",
+              "values": [
+                "PENDING",
+                "SENT",
+                "SUCCEEDED",
+                "FAILED",
+                "EXPIRED"
+              ]
+            },
+            "FingerprintJobType": {
+              "kind": "valueSet",
+              "values": [
+                "ENROLL",
+                "DELETE"
+              ]
             }
           }
         },
@@ -356,10 +820,10 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "7c8d07660e22460959a0e2511bc6911622b2196e975433a43acfa713884f4a86"
+    "storageHash": "c0eb48b5774a8a9249d29e135eba5c6cbb90843bc8040f29d7c5e3587b36f4a4"
   },
   "execution": {
-    "executionHash": "5010b03dc5bc4c4b71ec8e3ba84b7df2f3acd3ae3804b449e623d84d361014e8",
+    "executionHash": "63d90f6cf54cb93ea7e70f954e26748d4acb9346f2407c32804bdc3ce89caae9",
     "mutations": {
       "defaults": [
         {
@@ -371,6 +835,58 @@
             "column": "id",
             "namespace": "public",
             "table": "AccessEvent"
+          }
+        },
+        {
+          "onCreate": {
+            "id": "uuidv4",
+            "kind": "generator"
+          },
+          "ref": {
+            "column": "id",
+            "namespace": "public",
+            "table": "Fingerprint"
+          }
+        },
+        {
+          "onCreate": {
+            "id": "timestampNow",
+            "kind": "generator"
+          },
+          "onUpdate": {
+            "id": "timestampNow",
+            "kind": "generator"
+          },
+          "ref": {
+            "column": "updatedAt",
+            "namespace": "public",
+            "table": "Fingerprint"
+          }
+        },
+        {
+          "onCreate": {
+            "id": "uuidv4",
+            "kind": "generator"
+          },
+          "ref": {
+            "column": "id",
+            "namespace": "public",
+            "table": "FingerprintJob"
+          }
+        },
+        {
+          "onCreate": {
+            "id": "timestampNow",
+            "kind": "generator"
+          },
+          "onUpdate": {
+            "id": "timestampNow",
+            "kind": "generator"
+          },
+          "ref": {
+            "column": "updatedAt",
+            "namespace": "public",
+            "table": "FingerprintJob"
           }
         },
         {

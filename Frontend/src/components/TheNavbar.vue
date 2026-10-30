@@ -5,14 +5,17 @@ import LiveStatus from '@/components/dashboard/LiveStatus.vue'
 import UnlockButton from '@/components/dashboard/UnlockButton.vue'
 import { useAuthStore } from '@/stores/auth/authStore'
 import { useDashboardStore } from '@/stores/dashboard/dashboardStore'
+import { useFingerprintStore } from '@/stores/fingerprints/fingerprintStore'
 
 const auth = useAuthStore()
 const dashboard = useDashboardStore()
+const fingerprints = useFingerprintStore()
 const router = useRouter()
 
 async function logout() {
   await auth.logout()
   dashboard.reset()
+  fingerprints.reset()
   await router.replace({ name: 'login' })
 }
 

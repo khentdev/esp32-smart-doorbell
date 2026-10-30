@@ -34,9 +34,9 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'7c8d07660e22460959a0e2511bc6911622b2196e975433a43acfa713884f4a86'>;
+  StorageHashBase<'c0eb48b5774a8a9249d29e135eba5c6cbb90843bc8040f29d7c5e3587b36f4a4'>;
 export type ExecutionHash =
-  ExecutionHashBase<'5010b03dc5bc4c4b71ec8e3ba84b7df2f3acd3ae3804b449e623d84d361014e8'>;
+  ExecutionHashBase<'63d90f6cf54cb93ea7e70f954e26748d4acb9346f2407c32804bdc3ce89caae9'>;
 export type ProfileHash =
   ProfileHashBase<'3916f444a8a17ad749191acf9e08dad97d1a327b88c2f1d45d12f240296aa8b2'>;
 
@@ -252,6 +252,7 @@ export type FieldOutputTypes = {
   readonly public: {
     readonly AccessEvent: {
       readonly deviceId: CodecTypes['pg/text@1']['output'];
+      readonly fingerprintName: CodecTypes['pg/text@1']['output'] | null;
       readonly fingerprintSlot: CodecTypes['pg/int4@1']['output'] | null;
       readonly id: CodecTypes['pg/uuid@1']['output'];
       readonly outcome: 'GRANTED' | 'DENIED' | 'ADMIN_UNLOCK';
@@ -260,6 +261,28 @@ export type FieldOutputTypes = {
     readonly DeviceCommand: {
       readonly deviceId: CodecTypes['pg/text@1']['output'];
       readonly pendingUnlockAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
+    };
+    readonly Fingerprint: {
+      readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
+      readonly deviceId: CodecTypes['pg/text@1']['output'];
+      readonly id: CodecTypes['pg/uuid@1']['output'];
+      readonly name: CodecTypes['pg/text@1']['output'];
+      readonly slot: CodecTypes['pg/int4@1']['output'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
+    };
+    readonly FingerprintJob: {
+      readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
+      readonly deviceId: CodecTypes['pg/text@1']['output'];
+      readonly error: CodecTypes['pg/text@1']['output'] | null;
+      readonly fingerprintId: CodecTypes['pg/uuid@1']['output'] | null;
+      readonly id: CodecTypes['pg/uuid@1']['output'];
+      readonly name: CodecTypes['pg/text@1']['output'];
+      readonly sentAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
+      readonly slot: CodecTypes['pg/int4@1']['output'];
+      readonly status: 'PENDING' | 'SENT' | 'SUCCEEDED' | 'FAILED' | 'EXPIRED';
+      readonly step: CodecTypes['pg/text@1']['output'] | null;
+      readonly type: 'ENROLL' | 'DELETE';
+      readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     };
     readonly User: {
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
@@ -274,6 +297,7 @@ export type FieldInputTypes = {
   readonly public: {
     readonly AccessEvent: {
       readonly deviceId: CodecTypes['pg/text@1']['input'];
+      readonly fingerprintName: CodecTypes['pg/text@1']['input'] | null;
       readonly fingerprintSlot: CodecTypes['pg/int4@1']['input'] | null;
       readonly id: CodecTypes['pg/uuid@1']['input'];
       readonly outcome: 'GRANTED' | 'DENIED' | 'ADMIN_UNLOCK';
@@ -282,6 +306,28 @@ export type FieldInputTypes = {
     readonly DeviceCommand: {
       readonly deviceId: CodecTypes['pg/text@1']['input'];
       readonly pendingUnlockAt: CodecTypes['pg/timestamptz-string@1']['input'] | null;
+    };
+    readonly Fingerprint: {
+      readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
+      readonly deviceId: CodecTypes['pg/text@1']['input'];
+      readonly id: CodecTypes['pg/uuid@1']['input'];
+      readonly name: CodecTypes['pg/text@1']['input'];
+      readonly slot: CodecTypes['pg/int4@1']['input'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
+    };
+    readonly FingerprintJob: {
+      readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
+      readonly deviceId: CodecTypes['pg/text@1']['input'];
+      readonly error: CodecTypes['pg/text@1']['input'] | null;
+      readonly fingerprintId: CodecTypes['pg/uuid@1']['input'] | null;
+      readonly id: CodecTypes['pg/uuid@1']['input'];
+      readonly name: CodecTypes['pg/text@1']['input'];
+      readonly sentAt: CodecTypes['pg/timestamptz-string@1']['input'] | null;
+      readonly slot: CodecTypes['pg/int4@1']['input'];
+      readonly status: 'PENDING' | 'SENT' | 'SUCCEEDED' | 'FAILED' | 'EXPIRED';
+      readonly step: CodecTypes['pg/text@1']['input'] | null;
+      readonly type: 'ENROLL' | 'DELETE';
+      readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
     };
     readonly User: {
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
@@ -296,6 +342,7 @@ export type StorageColumnTypes = {
   readonly public: {
     readonly AccessEvent: {
       readonly deviceId: CodecTypes['pg/text@1']['output'];
+      readonly fingerprintName: CodecTypes['pg/text@1']['output'] | null;
       readonly fingerprintSlot: CodecTypes['pg/int4@1']['output'] | null;
       readonly id: CodecTypes['pg/uuid@1']['output'];
       readonly outcome: 'GRANTED' | 'DENIED' | 'ADMIN_UNLOCK';
@@ -304,6 +351,28 @@ export type StorageColumnTypes = {
     readonly DeviceCommand: {
       readonly deviceId: CodecTypes['pg/text@1']['output'];
       readonly pendingUnlockAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
+    };
+    readonly Fingerprint: {
+      readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
+      readonly deviceId: CodecTypes['pg/text@1']['output'];
+      readonly id: CodecTypes['pg/uuid@1']['output'];
+      readonly name: CodecTypes['pg/text@1']['output'];
+      readonly slot: CodecTypes['pg/int4@1']['output'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
+    };
+    readonly FingerprintJob: {
+      readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
+      readonly deviceId: CodecTypes['pg/text@1']['output'];
+      readonly error: CodecTypes['pg/text@1']['output'] | null;
+      readonly fingerprintId: CodecTypes['pg/uuid@1']['output'] | null;
+      readonly id: CodecTypes['pg/uuid@1']['output'];
+      readonly name: CodecTypes['pg/text@1']['output'];
+      readonly sentAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
+      readonly slot: CodecTypes['pg/int4@1']['output'];
+      readonly status: 'PENDING' | 'SENT' | 'SUCCEEDED' | 'FAILED' | 'EXPIRED';
+      readonly step: CodecTypes['pg/text@1']['output'] | null;
+      readonly type: 'ENROLL' | 'DELETE';
+      readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     };
     readonly User: {
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
@@ -318,6 +387,7 @@ export type StorageColumnInputTypes = {
   readonly public: {
     readonly AccessEvent: {
       readonly deviceId: CodecTypes['pg/text@1']['input'];
+      readonly fingerprintName: CodecTypes['pg/text@1']['input'] | null;
       readonly fingerprintSlot: CodecTypes['pg/int4@1']['input'] | null;
       readonly id: CodecTypes['pg/uuid@1']['input'];
       readonly outcome: 'GRANTED' | 'DENIED' | 'ADMIN_UNLOCK';
@@ -326,6 +396,28 @@ export type StorageColumnInputTypes = {
     readonly DeviceCommand: {
       readonly deviceId: CodecTypes['pg/text@1']['input'];
       readonly pendingUnlockAt: CodecTypes['pg/timestamptz-string@1']['input'] | null;
+    };
+    readonly Fingerprint: {
+      readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
+      readonly deviceId: CodecTypes['pg/text@1']['input'];
+      readonly id: CodecTypes['pg/uuid@1']['input'];
+      readonly name: CodecTypes['pg/text@1']['input'];
+      readonly slot: CodecTypes['pg/int4@1']['input'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
+    };
+    readonly FingerprintJob: {
+      readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
+      readonly deviceId: CodecTypes['pg/text@1']['input'];
+      readonly error: CodecTypes['pg/text@1']['input'] | null;
+      readonly fingerprintId: CodecTypes['pg/uuid@1']['input'] | null;
+      readonly id: CodecTypes['pg/uuid@1']['input'];
+      readonly name: CodecTypes['pg/text@1']['input'];
+      readonly sentAt: CodecTypes['pg/timestamptz-string@1']['input'] | null;
+      readonly slot: CodecTypes['pg/int4@1']['input'];
+      readonly status: 'PENDING' | 'SENT' | 'SUCCEEDED' | 'FAILED' | 'EXPIRED';
+      readonly step: CodecTypes['pg/text@1']['input'] | null;
+      readonly type: 'ENROLL' | 'DELETE';
+      readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
     };
     readonly User: {
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
@@ -340,6 +432,7 @@ export type StorageColumnInputTypes = {
 export namespace Models {
   export type public_AccessEvent = {
     deviceId: CodecTypes['pg/text@1']['output'];
+    fingerprintName: CodecTypes['pg/text@1']['output'] | null;
     fingerprintSlot: CodecTypes['pg/int4@1']['output'] | null;
     id: CodecTypes['pg/uuid@1']['output'];
     outcome: 'GRANTED' | 'DENIED' | 'ADMIN_UNLOCK';
@@ -349,6 +442,30 @@ export namespace Models {
   export type public_DeviceCommand = {
     deviceId: CodecTypes['pg/text@1']['output'];
     pendingUnlockAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
+    readonly [RelationKeys]?: never;
+  };
+  export type public_Fingerprint = {
+    createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
+    deviceId: CodecTypes['pg/text@1']['output'];
+    id: CodecTypes['pg/uuid@1']['output'];
+    name: CodecTypes['pg/text@1']['output'];
+    slot: CodecTypes['pg/int4@1']['output'];
+    updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
+    readonly [RelationKeys]?: never;
+  };
+  export type public_FingerprintJob = {
+    createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
+    deviceId: CodecTypes['pg/text@1']['output'];
+    error: CodecTypes['pg/text@1']['output'] | null;
+    fingerprintId: CodecTypes['pg/uuid@1']['output'] | null;
+    id: CodecTypes['pg/uuid@1']['output'];
+    name: CodecTypes['pg/text@1']['output'];
+    sentAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
+    slot: CodecTypes['pg/int4@1']['output'];
+    status: 'PENDING' | 'SENT' | 'SUCCEEDED' | 'FAILED' | 'EXPIRED';
+    step: CodecTypes['pg/text@1']['output'] | null;
+    type: 'ENROLL' | 'DELETE';
+    updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     readonly [RelationKeys]?: never;
   };
   export type public_User = {
@@ -365,6 +482,8 @@ export declare const models: {
   public: {
     AccessEvent: Models.public_AccessEvent;
     DeviceCommand: Models.public_DeviceCommand;
+    Fingerprint: Models.public_Fingerprint;
+    FingerprintJob: Models.public_FingerprintJob;
     User: Models.public_User;
   };
 };
@@ -393,6 +512,11 @@ type ContractBase = Omit<
                   readonly nativeType: 'text';
                   readonly codecId: 'pg/text@1';
                   readonly nullable: false;
+                };
+                readonly fingerprintName: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
                 };
                 readonly fingerprintSlot: {
                   readonly nativeType: 'int4';
@@ -446,6 +570,128 @@ type ContractBase = Omit<
               indexes: readonly [];
               foreignKeys: readonly [];
             };
+            readonly Fingerprint: {
+              columns: {
+                readonly createdAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+                readonly deviceId: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                };
+                readonly id: {
+                  readonly nativeType: 'uuid';
+                  readonly codecId: 'pg/uuid@1';
+                  readonly nullable: false;
+                };
+                readonly name: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                };
+                readonly slot: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                };
+                readonly updatedAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                  readonly nullable: false;
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [{ readonly columns: readonly ['deviceId', 'slot'] }];
+              indexes: readonly [];
+              foreignKeys: readonly [];
+            };
+            readonly FingerprintJob: {
+              columns: {
+                readonly createdAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+                readonly deviceId: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                };
+                readonly error: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly fingerprintId: {
+                  readonly nativeType: 'uuid';
+                  readonly codecId: 'pg/uuid@1';
+                  readonly nullable: true;
+                };
+                readonly id: {
+                  readonly nativeType: 'uuid';
+                  readonly codecId: 'pg/uuid@1';
+                  readonly nullable: false;
+                };
+                readonly name: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                };
+                readonly sentAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                  readonly nullable: true;
+                };
+                readonly slot: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                };
+                readonly status: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                };
+                readonly step: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly type: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                };
+                readonly updatedAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                  readonly nullable: false;
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [];
+              indexes: readonly [
+                {
+                  readonly name: 'FingerprintJob_deviceId_status_idx_bb11af39';
+                  readonly prefix: 'FingerprintJob_deviceId_status_idx';
+                  readonly columns: readonly ['deviceId', 'status'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'fingerprint_job_one_active_ea702928';
+                  readonly prefix: 'fingerprint_job_one_active';
+                  readonly columns: readonly ['deviceId'];
+                  readonly where: "(\"status\" IN ('PENDING', 'SENT'))";
+                  readonly unique: true;
+                },
+              ];
+              foreignKeys: readonly [];
+            };
             readonly User: {
               columns: {
                 readonly createdAt: {
@@ -486,6 +732,14 @@ type ContractBase = Omit<
               readonly kind: 'valueSet';
               readonly values: readonly ['GRANTED', 'DENIED', 'ADMIN_UNLOCK'];
             };
+            readonly FingerprintJobStatus: {
+              readonly kind: 'valueSet';
+              readonly values: readonly ['PENDING', 'SENT', 'SUCCEEDED', 'FAILED', 'EXPIRED'];
+            };
+            readonly FingerprintJobType: {
+              readonly kind: 'valueSet';
+              readonly values: readonly ['ENROLL', 'DELETE'];
+            };
           };
         };
       };
@@ -505,6 +759,14 @@ type ContractBase = Omit<
       readonly namespace: 'public' & NamespaceId;
       readonly model: 'DeviceCommand';
     };
+    readonly Fingerprint: {
+      readonly namespace: 'public' & NamespaceId;
+      readonly model: 'Fingerprint';
+    };
+    readonly FingerprintJob: {
+      readonly namespace: 'public' & NamespaceId;
+      readonly model: 'FingerprintJob';
+    };
     readonly User: { readonly namespace: 'public' & NamespaceId; readonly model: 'User' };
   };
   readonly domain: {
@@ -515,6 +777,10 @@ type ContractBase = Omit<
             readonly fields: {
               readonly deviceId: {
                 readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly fingerprintName: {
+                readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
               readonly fingerprintSlot: {
@@ -543,6 +809,7 @@ type ContractBase = Omit<
               readonly namespaceId: 'public';
               readonly fields: {
                 readonly deviceId: { readonly column: 'deviceId' };
+                readonly fingerprintName: { readonly column: 'fingerprintName' };
                 readonly fingerprintSlot: { readonly column: 'fingerprintSlot' };
                 readonly id: { readonly column: 'id' };
                 readonly outcome: { readonly column: 'outcome' };
@@ -571,6 +838,133 @@ type ContractBase = Omit<
               readonly fields: {
                 readonly deviceId: { readonly column: 'deviceId' };
                 readonly pendingUnlockAt: { readonly column: 'pendingUnlockAt' };
+              };
+            };
+          };
+          readonly Fingerprint: {
+            readonly fields: {
+              readonly createdAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                };
+              };
+              readonly deviceId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/uuid@1' };
+              };
+              readonly name: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly slot: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly updatedAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                };
+              };
+            };
+            readonly relations: Record<string, never>;
+            readonly storage: {
+              readonly table: 'Fingerprint';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly createdAt: { readonly column: 'createdAt' };
+                readonly deviceId: { readonly column: 'deviceId' };
+                readonly id: { readonly column: 'id' };
+                readonly name: { readonly column: 'name' };
+                readonly slot: { readonly column: 'slot' };
+                readonly updatedAt: { readonly column: 'updatedAt' };
+              };
+            };
+          };
+          readonly FingerprintJob: {
+            readonly fields: {
+              readonly createdAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                };
+              };
+              readonly deviceId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly error: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly fingerprintId: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/uuid@1' };
+              };
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/uuid@1' };
+              };
+              readonly name: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly sentAt: {
+                readonly nullable: true;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                };
+              };
+              readonly slot: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly status: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly step: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly type: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly updatedAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                };
+              };
+            };
+            readonly relations: Record<string, never>;
+            readonly storage: {
+              readonly table: 'FingerprintJob';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly createdAt: { readonly column: 'createdAt' };
+                readonly deviceId: { readonly column: 'deviceId' };
+                readonly error: { readonly column: 'error' };
+                readonly fingerprintId: { readonly column: 'fingerprintId' };
+                readonly id: { readonly column: 'id' };
+                readonly name: { readonly column: 'name' };
+                readonly sentAt: { readonly column: 'sentAt' };
+                readonly slot: { readonly column: 'slot' };
+                readonly status: { readonly column: 'status' };
+                readonly step: { readonly column: 'step' };
+                readonly type: { readonly column: 'type' };
+                readonly updatedAt: { readonly column: 'updatedAt' };
               };
             };
           };
@@ -626,6 +1020,23 @@ type ContractBase = Omit<
               { readonly name: 'ADMIN_UNLOCK'; readonly value: 'ADMIN_UNLOCK' },
             ];
           };
+          readonly FingerprintJobStatus: {
+            readonly codecId: 'pg/text@1';
+            readonly members: readonly [
+              { readonly name: 'PENDING'; readonly value: 'PENDING' },
+              { readonly name: 'SENT'; readonly value: 'SENT' },
+              { readonly name: 'SUCCEEDED'; readonly value: 'SUCCEEDED' },
+              { readonly name: 'FAILED'; readonly value: 'FAILED' },
+              { readonly name: 'EXPIRED'; readonly value: 'EXPIRED' },
+            ];
+          };
+          readonly FingerprintJobType: {
+            readonly codecId: 'pg/text@1';
+            readonly members: readonly [
+              { readonly name: 'ENROLL'; readonly value: 'ENROLL' },
+              { readonly name: 'DELETE'; readonly value: 'DELETE' },
+            ];
+          };
         };
       };
     };
@@ -661,6 +1072,40 @@ type ContractBase = Omit<
             readonly column: 'id';
             readonly namespace: 'public';
             readonly table: 'AccessEvent';
+          };
+        },
+        {
+          readonly onCreate: { readonly id: 'uuidv4'; readonly kind: 'generator' };
+          readonly ref: {
+            readonly column: 'id';
+            readonly namespace: 'public';
+            readonly table: 'Fingerprint';
+          };
+        },
+        {
+          readonly onCreate: { readonly id: 'timestampNow'; readonly kind: 'generator' };
+          readonly onUpdate: { readonly id: 'timestampNow'; readonly kind: 'generator' };
+          readonly ref: {
+            readonly column: 'updatedAt';
+            readonly namespace: 'public';
+            readonly table: 'Fingerprint';
+          };
+        },
+        {
+          readonly onCreate: { readonly id: 'uuidv4'; readonly kind: 'generator' };
+          readonly ref: {
+            readonly column: 'id';
+            readonly namespace: 'public';
+            readonly table: 'FingerprintJob';
+          };
+        },
+        {
+          readonly onCreate: { readonly id: 'timestampNow'; readonly kind: 'generator' };
+          readonly onUpdate: { readonly id: 'timestampNow'; readonly kind: 'generator' };
+          readonly ref: {
+            readonly column: 'updatedAt';
+            readonly namespace: 'public';
+            readonly table: 'FingerprintJob';
           };
         },
         {

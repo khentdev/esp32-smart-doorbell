@@ -2,7 +2,7 @@ import type { Context } from "hono";
 import { streamSSE } from "hono/streaming";
 import { env } from "../../config/env";
 import type { AppContext } from "../../types/context";
-import { subscribeToAccessEvents } from "./events";
+import { subscribeToAccessEvents, subscribeToFingerprintEvents } from "./events";
 import {
   manualDoorUnlockService,
   pollDeviceCommandService,
@@ -46,11 +46,20 @@ export function streamAccessEventsController(c: Context<AppContext>) {
   return streamSSE(c, async (stream) => {
     // Never await inside the listener: the publisher is a synchronous fan-out and a slow
     // client must not delay POST /door/access.
-    const unsubscribe = subscribeToAccessEvents((event) => {
+    const unsubscribeAccess = subscribeToAccessEvents((event) => {
       stream
         .writeSSE({ event: "access", data: JSON.stringify(event) })
         .catch(unsubscribe); // dead socket: stop listening
     });
+    const unsubscribeFingerprint = subscribeToFingerprintEvents((event) => {
+      stream
+        .writeSSE({ event: "fingerprint", data: JSON.stringify(event) })
+        .catch(unsubscribe);
+    });
+    function unsubscribe() {
+      unsubscribeAccess();
+      unsubscribeFingerprint();
+    }
 
     let wake: () => void = () => {};
     stream.onAbort(() => {

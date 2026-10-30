@@ -1,16 +1,22 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { ArrowLeft } from '@lucide/vue'
 import BasePanel from '@/components/shared/BasePanel.vue'
 import BaseButton from '@/components/shared/BaseButton.vue'
 import SoundPicker from '@/components/settings/SoundPicker.vue'
 import CustomSoundUpload from '@/components/settings/CustomSoundUpload.vue'
+import EnrollFingerprint from '@/components/settings/EnrollFingerprint.vue'
+import FingerprintList from '@/components/settings/FingerprintList.vue'
+import { useFingerprintStore } from '@/stores/fingerprints/fingerprintStore'
 import { useSoundStore, type SoundPreference } from '@/stores/settings/soundStore'
 import { useToast } from '@/composables/Toast'
 
 const sound = useSoundStore()
+const fingerprints = useFingerprintStore()
 const toast = useToast()
+
+onMounted(() => void fingerprints.fetch({ silent: fingerprints.hasLoaded }))
 
 const draft = ref<SoundPreference>(sound.preference)
 const draftFile = ref<File | null>(null)
@@ -57,9 +63,23 @@ async function save() {
     </RouterLink>
 
     <h1 class="text-ink mb-1 text-2xl font-semibold tracking-tight">Settings</h1>
-    <p class="text-muted mb-6 text-sm">Stored on this device only.</p>
+    <p class="text-muted mb-6 text-sm">Who can open the door, and how you're notified.</p>
 
-    <BasePanel title="Notifications" description="Played with every toast">
+    <BasePanel
+      title="Fingerprints"
+      description="People who can open the door"
+      class="mb-6 overflow-hidden"
+    >
+      <FingerprintList />
+      <div class="border-line border-t">
+        <EnrollFingerprint />
+      </div>
+    </BasePanel>
+
+    <BasePanel
+      title="Notifications"
+      description="Played with every toast · stored on this device only"
+    >
       <form class="flex flex-col gap-5 p-5 sm:p-6" @submit.prevent="save">
         <SoundPicker v-model="draft" :can-preview="canPreview" @preview="preview" />
 

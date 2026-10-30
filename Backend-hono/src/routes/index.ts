@@ -3,6 +3,7 @@ import authRoutes from "../features/auth/route";
 import sessionRoutes from "../features/session/route";
 import doorRoutes from "../features/door/routes";
 import dashboardRoutes from "../features/dashboard/routes";
+import fingerprintRoutes from "../features/fingerprints/routes";
 
 export default function registerAppRoutes(app: Hono) {
   app.get("/", (c) => c.redirect("/healthz"));
@@ -11,4 +12,5 @@ export default function registerAppRoutes(app: Hono) {
   app.route("/session", sessionRoutes);
   app.route("/door",doorRoutes)
   app.route("/dashboard", dashboardRoutes)
+  app.route("/fingerprints", fingerprintRoutes)
 }

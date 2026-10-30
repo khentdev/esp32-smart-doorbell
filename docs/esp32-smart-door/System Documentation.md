@@ -55,7 +55,7 @@
 - "Unlock Door" button — lets the admin unlock without a fingerprint match (see §6)
 - Stat cards: Granted Today, Denied Today, Last Event (relative time, ticks every minute)
 - Every access attempt (granted, denied, or admin unlock) emitted live to dashboard via SSE, with toast notification + sound alert
-- Toast shows device label, outcome, and absolute datetime, visually styled differently per outcome, auto-dismisses after a few seconds, no manual action required
+- Toast shows device label, outcome, the person's name for a granted scan, and absolute datetime, visually styled differently per outcome, auto-dismisses after a few seconds, no manual action required
 - Read-only history list of the most recent access events (last 30), most recent first, each showing its outcome
 
 **Business Rules**
@@ -95,31 +95,40 @@
 **Features**
 
 - ESP32 reports every fingerprint scan result (granted or denied) to the backend as an access event
-- ESP32 also polls the backend periodically for a pending admin-unlock command (see §6)
+- ESP32 also polls the backend periodically for a pending command: an admin unlock (see §6) or a fingerprint enroll/remove (see §5), reporting each fingerprint step back
 
 **Business Rules**
 
 - ESP32 authenticates with `X-API-Key` header; HTTPS required in production
 - API key compared with constant-time equality; stored in server environment only
 - Single shared key is an accepted limitation for this single-device school project (see [[API & Database Reference#6.5 Device API key (`POST /door/access`)]]); no debounce is needed since there is no held-button failure mode to guard against
-- The same API key authenticates both `POST /door/access` (reporting an event) and `GET /door/commands` (polling for a pending unlock)
+- The same API key authenticates `POST /door/access` (reporting an event), `GET /door/commands` (polling for a pending command), and `POST /door/jobs/:jobId/progress` (reporting fingerprint steps)
 - Note: the fingerprint scanned here is the physical biometric sensor on the door hardware — unrelated to the browser/device fingerprint used for dashboard session binding in §0/§1
 
-#### 5. Fingerprint Enrollment
+#### 5. Fingerprint Management
 
 ---
 
 **Features**
 
-- Enrollment is local and offline: the owner connects a laptop to the ESP32 over USB-serial while physically present at the device and runs the enrollment routine directly — no dashboard or backend involvement
-- Enrolling a finger requires scanning the same finger twice in sequence
-- The OLED displays enrollment prompts ("Place finger", "Remove finger", "Place same finger again") since the fingerprint sensor itself has no screen; the buzzer and LEDs confirm success or failure
+- Settings → Fingerprints lists every enrolled person by name, with when they were added
+- Admin adds a person by typing their name; the person then scans the same finger twice at the door
+- The dashboard shows the enrollment steps live ("Place finger", "Remove finger", "Place same finger again") while the OLED shows the same prompts at the door; the buzzer and LEDs confirm success or failure there
+- Admin can rename a person or remove them (which wipes their fingerprint from the sensor)
+- Access history and toasts show the person's name for a granted scan
 
 **Business Rules**
 
-- Enrollment does not generate an access event — it is not an access attempt, so nothing is sent to the backend and PostgreSQL is untouched
-- Fingerprint templates are stored on the sensor's own onboard flash in numbered slots, never in PostgreSQL
-- MVP scope is one or two enrolled fingers (house owner, maybe one family member); there is no multi-user management UI
+- Enrollment and removal are requested from the dashboard and carried out by the ESP32 on its next poll (~3 s) — no laptop or USB connection needed. The person being enrolled must still be physically at the door
+- Protected by the same session + CSRF + fingerprint auth as Admin Manual Unlock (§6) — someone who can open the door from the dashboard can also manage who opens it
+- The backend picks the sensor slot automatically (lowest free, up to 127); the admin never sees or chooses slot numbers
+- Names are 1–40 characters and unique (case-insensitive). Each person is one finger
+- Only one enroll or remove runs at a time
+- A request the door doesn't pick up within 60 seconds expires; one the door started but never finished fails after 120 seconds. Each step at the door waits up to 20 seconds for a finger
+- A person is listed only after the door confirms the enrollment, and removed from the list only after the door confirms the wipe
+- Renaming changes the database only; past history keeps the name the person had at the time of the scan
+- Enrollment and removal do not generate access events — they are not access attempts
+- Fingerprint templates stay on the sensor's own onboard flash and are never stored in PostgreSQL; the database only maps slot → name
 
 #### 6. Admin Manual Unlock
 

@@ -15,11 +15,27 @@ model User {
   updatedAt      temporal.updatedAtString()
 }
 
+enum FingerprintJobType {
+  @@type("pg/text@1")
+  ENROLL = "ENROLL"
+  DELETE = "DELETE"
+}
+
+enum FingerprintJobStatus {
+  @@type("pg/text@1")
+  PENDING   = "PENDING"
+  SENT      = "SENT"
+  SUCCEEDED = "SUCCEEDED"
+  FAILED    = "FAILED"
+  EXPIRED   = "EXPIRED"
+}
+
 model AccessEvent {
   id              Uuid              @id @default(uuid())
   deviceId        String
   outcome         AccessOutcome
   fingerprintSlot Int?
+  fingerprintName String?
   timestamp       TimestamptzString @default(now())
 
   @@index([timestamp])
@@ -28,4 +44,36 @@ model AccessEvent {
 model DeviceCommand {
   deviceId        String             @id
   pendingUnlockAt TimestamptzString?
+}
+
+// One enrolled person: a sensor slot mapped to a name. The template itself stays on the sensor.
+model Fingerprint {
+  id        Uuid              @id @default(uuid())
+  deviceId  String
+  slot      Int
+  name      String
+  createdAt TimestamptzString @default(now())
+  updatedAt temporal.updatedAtString()
+
+  @@unique([deviceId, slot])
+}
+
+// One enroll/delete request delivered to the ESP32 through GET /door/commands.
+model FingerprintJob {
+  id            Uuid                 @id @default(uuid())
+  deviceId      String
+  type          FingerprintJobType
+  slot          Int
+  name          String
+  fingerprintId Uuid?
+  status        FingerprintJobStatus
+  step          String?
+  error         String?
+  sentAt        TimestamptzString?
+  createdAt     TimestamptzString    @default(now())
+  updatedAt     temporal.updatedAtString()
+
+  @@index([deviceId, status])
+  // At most one PENDING/SENT job per device, enforced by the database.
+  @@index([deviceId], unique: true, where: "(\"status\" IN ('PENDING', 'SENT'))", name: "fingerprint_job_one_active")
 }

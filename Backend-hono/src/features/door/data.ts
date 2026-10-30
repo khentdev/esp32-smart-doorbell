@@ -26,6 +26,7 @@ export async function createAccessEvent(input: {
   deviceId: DeviceId;
   outcome: AccessOutcome;
   fingerprintSlot: number | null;
+  fingerprintName: string | null;
 }) {
   return db.orm.public.AccessEvent.create(input);
 }
