@@ -6,6 +6,7 @@ import router from './router'
 import { setSessionEndedHandler } from '@/api/axios/axiosInterceptor'
 import { useAuthStore } from '@/stores/auth/authStore'
 import { useDashboardStore } from '@/stores/dashboard/dashboardStore'
+import { useFingerprintStore } from '@/stores/fingerprints/fingerprintStore'
 import './style.css'
 
 const app = createApp(App)
@@ -15,6 +16,7 @@ app.use(createPinia())
 setSessionEndedHandler(() => {
   useAuthStore().clear()
   useDashboardStore().reset()
+  useFingerprintStore().reset()
   if (router.currentRoute.value.name !== 'login') void router.replace({ name: 'login' })
 })
 

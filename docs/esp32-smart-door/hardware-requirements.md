@@ -7,8 +7,10 @@
 | **Controller** | ESP32 Development Board |
 | **Input** | Fingerprint scanner (R307/AS608 class, UART) |
 | **Outputs** | 12V solenoid lock (via relay), MG996R servo, OLED display, buzzer, LED |
-| **Power domains** | 5V (ESP32 + sensor), 5V separate (servo), 12V (solenoid) |
+| **Power domains** | 5V (ESP32 + sensor), 5V separate via USB phone charger (servo), 12V (solenoid) |
 | **Connectivity** | WiFi 2.4GHz only (ESP32 limitation) — phone hotspot supported |
+
+See [[Hardware Setup Guide]] for the pin map, wiring steps and build order.
 
 ---
 
@@ -29,7 +31,7 @@
 
 **Design consequence of FRR <1.0%:** roughly 1 in 100 legitimate scans will be falsely rejected. This is inherent to fingerprint sensors, not a defect. The access flow must allow immediate rescan rather than treating a single failed read as a final denial — and it is the reason the old 3-second debounce rule (written for a mashed button) is **removed** from this design.
 
-**Library:** Adafruit Fingerprint Sensor Library (Arduino IDE → Library Manager).
+**Library:** Adafruit Fingerprint Sensor Library (installed automatically by PlatformIO from `firmware/platformio.ini`).
 
 ---
 
@@ -56,11 +58,11 @@
 |---|---|---|
 | Rotation | 180° (positional) | **Not** the 360° continuous-rotation variant — positional control is required to command "open" and "closed" angles |
 | Stall torque | 9.4 kg·cm (4.8V) / 11 kg·cm (6.0V) | Sufficient for a lightweight demo door; torque drops with lever-arm length, so mount the horn close to the hinge |
-| Operating voltage | 4.8 – 6V | **Requires its own 5V supply** — current spikes under load will brown out the ESP32 if run from its 5V pin |
+| Operating voltage | 4.8 – 6V | **Requires its own 5V supply** — current spikes under load will brown out the ESP32 if run from its 5V pin. Supplied by a separate USB phone charger (see below) |
 | Gear type | Metal | Survives shock loads (door catching, hitting end stops) that strip plastic gears irreversibly |
 | Operating speed | 0.15 – 0.19 s/60° | Full door swing completes in well under a second |
 
-**Wiring:** red → separate 5V supply, brown/black → ground **shared with the ESP32** (common ground is required for the PWM signal to have a reference), orange/yellow → ESP32 GPIO (signal only).
+**Wiring:** red → USB charger cable's +5V wire, brown/black → ground **shared with the ESP32** (common ground is required for the PWM signal to have a reference), orange/yellow → ESP32 GPIO (signal only).
 
 ---
 
@@ -69,7 +71,7 @@
 
 | Spec | Value | Why it matters |
 |---|---|---|
-| Output | 12V DC, 3A | 0.6A is the solenoid's steady draw; the headroom covers inrush at switch-on and leaves room to step down for the servo later |
+| Output | 12V DC, 3A | 0.6A is the solenoid's steady draw; the headroom covers inrush at switch-on. Not used for the servo — that runs from a USB charger instead |
 | Input | 100–240V AC | Standard mains |
 | Connector | 5.5 × 2.1mm barrel (male) | Requires a female barrel-to-screw-terminal adapter to connect to the relay and solenoid |
 | Protections | Short circuit, overload, overheat | Relevant since this is the only mains-connected part of the build |
@@ -91,6 +93,22 @@ When power is cut to the solenoid, its collapsing magnetic field produces a reve
 **Wiring:** placed **across the solenoid's two terminals**, reverse-biased — striped end (cathode) to the **+12V** side, plain end (anode) to the **ground** side. It does nothing during normal operation and conducts only during the spike. Installed backwards it shorts the 12V supply the moment the relay closes, so stripe orientation must be verified before first power-up.
 
 Rated 1000V / 1A — far beyond what a 0.6A coil demands. (1N4001 and 1N4005 are the same part at lower voltage ratings; 1N4007 is specified for maximum headroom at identical cost.)
+
+---
+
+#### USB Phone Charger + Spare USB Cable (servo 5V supply)
+**Function:** Dedicated 5V supply for the MG996R servo. No separate 5V adapter was purchased, so a spare USB wall charger and a sacrificial USB cable provide the servo's isolated power domain.
+
+| Spec | Value | Why it matters |
+|---|---|---|
+| Output | 5V DC, **2A or higher** (check the label) | The MG996R draws ~0.5–1A while moving and up to ~2.5A at stall. A 1A charger will sag and the servo will jitter or stall against the door |
+| Charger | **A different charger from the one powering the ESP32** | Sharing one charger (even on separate ports of a dual-port brick) puts the servo's spikes back on the ESP32's supply — the brown-out the separate domain exists to prevent |
+| Fast chargers (QC / PD) | Fine | They output plain 5V unless a device negotiates a higher voltage, and a cut cable with no data lines never negotiates |
+| Cable | USB cable with the device end cut off | Inside: **red = +5V, black = GND**, white/green = data (unused — trim and insulate them so they can't short) |
+
+**Wiring:** red → servo red (+5V), black → servo brown/black **and** an ESP32 GND pin (common ground), servo signal wire → ESP32 GPIO only. Cheap cables don't always follow the colour code, so **verify +5V vs GND with a multimeter** before connecting the servo — reverse polarity can destroy it. Use a screw terminal or the breadboard power rail for the joins rather than twisted bare wire, which can work loose under the servo's current.
+
+**Recommended:** a 470–1000µF electrolytic capacitor across the servo's +5V and GND (negative/striped leg to GND), placed close to the servo, to absorb start-up current spikes. Optional, but it reduces jitter on weaker chargers.
 
 ---
 
@@ -140,7 +158,7 @@ Three separate power domains share a common ground:
 | Domain | Source | Powers |
 |---|---|---|
 | 5V (logic) | USB or 5V adapter → ESP32 | ESP32, fingerprint sensor, OLED, relay coil, buzzer, LED |
-| 5V (motor) | Separate 5V supply | MG996R servo only |
+| 5V (motor) | Separate USB phone charger (≥2A) + cut USB cable | MG996R servo only |
 | 12V | 12V 3A adapter → barrel adapter → relay | Solenoid lock only |
 
 **Common ground is mandatory.** All three domains must share a ground reference, or the PWM signal to the servo and the trigger signal to the relay have no reference level and will behave unpredictably.
@@ -154,4 +172,5 @@ Three separate power domains share a common ground:
 - **Scale:** the solenoid is a cabinet-grade lock and the servo is a hobby-grade actuator. Together they suit a lightweight demo door mockup, not a real household door.
 - **Mounting tolerance:** the 10mm latch travel leaves little margin for misalignment. The mockup should allow adjustment (slotted screw holes) rather than fixing the strike plate rigidly on the first attempt.
 - **Door weight:** usable servo force falls as the lever arm lengthens. The door mockup should be built as light as practical, with the servo horn mounted close to the hinge.
+- **Servo supply:** a USB phone charger is a stopgap 5V source, not a purpose-built servo supply. If the servo jitters, stalls, or swings the door weakly, check the charger's rated current first; a dedicated 5V 3A adapter is the upgrade path.
 - **Network:** ESP32 supports 2.4GHz WiFi only. A phone hotspot works as the demo network provided it is not set to 5GHz.

@@ -21,22 +21,48 @@ accessEvents
 - deviceId        (string)
 - outcome         ("GRANTED" | "DENIED" | "ADMIN_UNLOCK")
 - fingerprintSlot (number, nullable — set only when outcome is "GRANTED")
+- fingerprintName (string, nullable — the enrolled person's name at scan time; null when not GRANTED or the slot is unknown)
 - timestamp       (datetime, UTC, server-generated)
 
 deviceCommands
 - deviceId        (PK, string)
 - pendingUnlockAt (datetime, nullable — set when the admin requests a manual unlock, cleared the moment the ESP32 polls it)
+
+fingerprints
+- id              (PK)
+- deviceId        (string)
+- slot            (number, 1–127 — the sensor's onboard template slot)
+- name            (string, 1–40 chars, unique per device, case-insensitive)
+- createdAt
+- updatedAt
+- unique (deviceId, slot)
+
+fingerprintJobs
+- id              (PK)
+- deviceId        (string)
+- type            ("ENROLL" | "DELETE")
+- slot            (number — the slot being enrolled into or wiped)
+- name            (string — the person's name, for display)
+- fingerprintId   (string, nullable — the person being deleted; null for ENROLL)
+- status          ("PENDING" | "SENT" | "SUCCEEDED" | "FAILED" | "EXPIRED")
+- step            (string, nullable — last progress step the ESP32 reported)
+- error           (string, nullable — failure reason when status is "FAILED")
+- sentAt          (datetime, nullable — when the ESP32 picked the job up; the device timeout counts from here)
+- createdAt
+- updatedAt
+- index (deviceId, status)
+- unique partial index (deviceId) where status IN ("PENDING", "SENT") — at most one active job per device
 ```
 
-- One admin `users` row is seeded at setup. No self-service registration.
+- One admin `users` row is seeded at setup. No self-service registration. Enrolled people are not users — they have no login.
 - No `devices` table — labels come from backend config (see [[System Design Documentation#4. Device Label Map]]).
 - No `settings` table — sound preferences live client-side.
 - No `acknowledged` fields — history is a log, not a task list.
-- No `fingerprints` table — biometric templates live on the sensor's own onboard flash, not in PostgreSQL. `fingerprintSlot` is just the sensor's slot number, recorded for reference only.
-- `deviceCommands` is a single row per device, not a generic command queue — only one command type (`UNLOCK`) exists today.
+- `fingerprints` maps a sensor slot to a person's name. The biometric template itself lives only on the sensor's onboard flash, never in PostgreSQL.
+- A `fingerprints` row is written only after the ESP32 confirms the enrollment, and removed only after it confirms the delete — the table reflects what the sensor holds.
+- `deviceCommands` stays a single row per device for `UNLOCK`; fingerprint work goes through `fingerprintJobs` instead (see §6.10).
 - The `deviceCommands` row is created lazily: `POST /door/unlock` upserts it on the first unlock request for a configured `deviceId` (no startup seeding). `deviceId` is validated against the device label map before any write.
 - Index `accessEvents.timestamp` — it backs both the "today" counts and the last-30 `recentHistory` query.
-- Fingerprint enrollment has no table, endpoint, or event — it is local to the device (see §6.10).
 
 ### 2. Shared Types
 
@@ -47,7 +73,50 @@ type AccessEvent = {
   deviceLabel: string
   outcome: "GRANTED" | "DENIED" | "ADMIN_UNLOCK"
   fingerprintSlot: number | null // sensor's onboard template slot that matched; null when outcome is "DENIED" or "ADMIN_UNLOCK"
+  fingerprintName: string | null // enrolled person's name at scan time; null when not GRANTED or the slot isn't enrolled
   timestamp: string // ISO 8601 UTC, e.g. "2026-08-05T02:30:00.000Z"
+}
+
+type Fingerprint = {
+  id: string
+  deviceId: string
+  name: string
+  slot: number
+  createdAt: string // ISO 8601 UTC
+}
+
+type FingerprintJobStep = "PLACE_FINGER" | "REMOVE_FINGER" | "PLACE_AGAIN"
+type FingerprintJobError =
+  | "MISMATCH"       // the two scans didn't match
+  | "TIMEOUT"        // no finger placed in time at the door
+  | "BAD_IMAGE"      // the sensor couldn't read the finger
+  | "STORE_FAILED"   // the sensor couldn't save the template
+  | "DELETE_FAILED"  // the sensor couldn't wipe the slot
+  | "DEVICE_TIMEOUT" // the ESP32 picked the job up but never reported a result
+
+type FingerprintJob = {
+  id: string
+  deviceId: string
+  type: "ENROLL" | "DELETE"
+  status: "PENDING" | "SENT" | "SUCCEEDED" | "FAILED" | "EXPIRED"
+  step: FingerprintJobStep | null
+  error: FingerprintJobError | null // set only when status is "FAILED"
+  name: string
+  slot: number
+  fingerprintId: string | null // DELETE only
+  createdAt: string
+  updatedAt: string
+}
+
+type FingerprintList = {
+  fingerprints: Fingerprint[] // oldest first
+  activeJob: FingerprintJob | null // the PENDING/SENT job, if any
+}
+
+// SSE `fingerprint` event payload
+type FingerprintJobEvent = {
+  job: FingerprintJob
+  fingerprint: Fingerprint | null // the new person, only on a SUCCEEDED ENROLL
 }
 
 type DashboardSummary = {
@@ -57,9 +126,10 @@ type DashboardSummary = {
   recentHistory: AccessEvent[] // newest first, max 30
 }
 
-type PendingCommand = {
-  command: "UNLOCK" | null // null when no command is pending
-}
+type PendingCommand =
+  | { command: null } // nothing pending
+  | { command: "UNLOCK" }
+  | { command: "ENROLL" | "DELETE"; jobId: string; slot: number }
 
 // JWT payload (issued in sid cookie) — single-user MVP
 type TokenPayload = {
@@ -102,7 +172,12 @@ type ApiError = {
 | GET | `/dashboard/summary` | Session + CSRF + fingerprint | Initial load: stats + last 30 history entries |
 | GET | `/door/stream` | Session cookie + fingerprint query | SSE stream of live access events |
 | POST | `/door/unlock` | Session + CSRF + fingerprint | Admin requests a manual unlock, independent of fingerprint match |
-| GET | `/door/commands` | API key | ESP32 polls for a pending manual-unlock command |
+| GET | `/door/commands` | API key | ESP32 polls for a pending command (manual unlock or fingerprint job) |
+| POST | `/door/jobs/:jobId/progress` | API key | ESP32 reports a fingerprint job step or its final result |
+| GET | `/fingerprints` | Session + CSRF + fingerprint | List enrolled people and the active fingerprint job |
+| POST | `/fingerprints` | Session + CSRF + fingerprint | Start enrolling a new person |
+| PATCH | `/fingerprints/:id` | Session + CSRF + fingerprint | Rename a person |
+| DELETE | `/fingerprints/:id` | Session + CSRF + fingerprint | Start removing a person from the sensor |
 
 ### 4. Route Protection
 
@@ -116,6 +191,11 @@ type ApiError = {
 | `GET /door/stream` | required | — | query param | — |
 | `POST /door/unlock` | required | required | header | — |
 | `GET /door/commands` | — | — | — | required |
+| `POST /door/jobs/:jobId/progress` | — | — | — | required |
+| `GET /fingerprints` | required | required | header | — |
+| `POST /fingerprints` | required | required | header | — |
+| `PATCH /fingerprints/:id` | required | required | header | — |
+| `DELETE /fingerprints/:id` | required | required | header | — |
 
 REST endpoints use `authenticate` middleware. SSE uses a separate `authenticateSse` middleware (see [[System Design Documentation#6. Auth Middleware]]).
 
@@ -223,6 +303,8 @@ Logout goes through `authenticate`, so an already-expired session returns `401 T
 
 `outcome` is `"GRANTED"`, `"DENIED"`, or `"ADMIN_UNLOCK"` (the last one reported after the ESP32 executes a pending command from `GET /door/commands`). `fingerprintSlot` must be present when `outcome` is `"GRANTED"` and omitted/null for `"DENIED"` or `"ADMIN_UNLOCK"`.
 
+On `GRANTED`, the backend looks up the `fingerprints` row for (`deviceId`, `fingerprintSlot`) and stores its current name as `fingerprintName` (null if the slot isn't enrolled in the database).
+
 **Response `201`** — access event accepted
 
 ```json
@@ -232,6 +314,7 @@ Logout goes through `authenticate`, so an already-expired session returns `401 T
   "deviceLabel": "Front Gate",
   "outcome": "GRANTED",
   "fingerprintSlot": 1,
+  "fingerprintName": "Juan",
   "timestamp": "2026-08-05T02:30:00.000Z"
 }
 ```
@@ -260,6 +343,7 @@ Logout goes through `authenticate`, so an already-expired session returns `401 T
       "deviceLabel": "Front Gate",
       "outcome": "GRANTED",
       "fingerprintSlot": 1,
+      "fingerprintName": "Juan",
       "timestamp": "2026-08-05T02:30:00.000Z"
     }
   ]
@@ -310,13 +394,27 @@ Upserts the device's `deviceCommands` row with `pendingUnlockAt = now()`. Does n
 { "command": "UNLOCK" }
 ```
 
+or a fingerprint job:
+
+```json
+{ "command": "ENROLL", "jobId": "uuid", "slot": 3 }
+```
+
+```json
+{ "command": "DELETE", "jobId": "uuid", "slot": 3 }
+```
+
 or, when nothing is pending:
 
 ```json
 { "command": null }
 ```
 
-The backend consumes the command in a **single atomic statement** (e.g. `UPDATE "deviceCommands" SET "pendingUnlockAt" = NULL WHERE "deviceId" = $1 AND "pendingUnlockAt" IS NOT NULL RETURNING` the previous value — or the Prisma equivalent), never a separate read then write. Two overlapping polls therefore can never both receive `"UNLOCK"`.
+**Order on each poll:** a pending unlock always wins. Only when there is no unlock to deliver does the backend look for a fingerprint job. At most one command is returned per poll.
+
+**Fingerprint job delivery:** the backend claims the oldest `PENDING` job for the device in a single atomic statement (`UPDATE "fingerprintJobs" SET "status" = 'SENT' WHERE "deviceId" = $1 AND "status" = 'PENDING' AND "createdAt" > <now − TTL> RETURNING …`), so a job is delivered at most once. A `PENDING` job older than `UNLOCK_COMMAND_TTL_SECONDS` is marked `EXPIRED` instead of delivered.
+
+**Unlock delivery:** the backend consumes the command in a **single atomic statement** (e.g. `UPDATE "deviceCommands" SET "pendingUnlockAt" = NULL WHERE "deviceId" = $1 AND "pendingUnlockAt" IS NOT NULL RETURNING` the previous value — or the Prisma equivalent), never a separate read then write. Two overlapping polls therefore can never both receive `"UNLOCK"`.
 
 - If the consumed `pendingUnlockAt` is within `UNLOCK_COMMAND_TTL_SECONDS` (default `60`) of now, the backend returns `"UNLOCK"`.
 - If it is older than the TTL, it is still cleared but treated as expired: the response is `{ "command": null }`. This prevents a stale request from opening the door when an offline ESP32 reconnects much later.
@@ -328,20 +426,121 @@ The backend consumes the command in a **single atomic statement** (e.g. `UPDATE 
 
 **Response `500`** — `POLL_DEVICE_ERROR`: the pending command could not be consumed.
 
+#### `POST /door/jobs/:jobId/progress`
+
+**Headers:** `X-API-Key: <shared-secret>`
+
+**Request** — an in-progress step:
+
+```json
+{ "deviceId": "front_gate", "step": "PLACE_AGAIN" }
+```
+
+or the final result:
+
+```json
+{ "deviceId": "front_gate", "step": "SUCCEEDED" }
+```
+
+```json
+{ "deviceId": "front_gate", "step": "FAILED", "error": "MISMATCH" }
+```
+
+`step` is one of `PLACE_FINGER`, `REMOVE_FINGER`, `PLACE_AGAIN` (ENROLL only), `SUCCEEDED`, or `FAILED`. `error` is required when `step` is `FAILED` (one of `MISMATCH`, `TIMEOUT`, `BAD_IMAGE`, `STORE_FAILED`, `DELETE_FAILED`) and must be omitted otherwise. `DEVICE_TIMEOUT` is set only by the backend.
+
+- In-progress steps update `step` and keep the job `SENT`.
+- `SUCCEEDED` on an `ENROLL` job inserts the `fingerprints` row (slot, name) and marks the job `SUCCEEDED` in one transaction. On a `DELETE` job it removes the `fingerprints` row and marks the job `SUCCEEDED`.
+- `FAILED` marks the job `FAILED` with `error`. Nothing else changes — a failed delete keeps the person listed.
+- Every accepted report is broadcast over SSE as a `fingerprint` event.
+
+**Response `200`** — the updated `FingerprintJob`.
+
+**Response `401`** — invalid or missing API key.
+
+**Response `400`** — `UNKNOWN_DEVICE_ID`; `VALIDATION_ERROR` for an unknown `step`/`error` or a wrong `error` presence; `INVALID_BODY`.
+
+**Response `404`** — `FINGERPRINT_JOB_NOT_FOUND`: no job with that id for this device.
+
+**Response `409`** — `FINGERPRINT_JOB_NOT_ACTIVE`: the job is not `SENT` (already finished, expired, or timed out). The ESP32 ignores this and returns to idle.
+
+**Response `500`** — `FINGERPRINT_SERVER_ERROR`.
+
+#### `GET /fingerprints?deviceId=front_gate`
+
+**Headers:** `X-CSRF-Token`, `X-Fingerprint`
+
+**Response `200`**
+
+```json
+{
+  "fingerprints": [
+    { "id": "uuid", "deviceId": "front_gate", "name": "Juan", "slot": 1, "createdAt": "2026-08-05T02:30:00.000Z" }
+  ],
+  "activeJob": null
+}
+```
+
+`activeJob` is the device's `PENDING` or `SENT` job, if any, after applying expiry (see §6.10) — so a page reload mid-enrollment picks the progress back up.
+
+**Response `400`** — `UNKNOWN_DEVICE_ID`. **`401`** — session errors. **`500`** — `FINGERPRINT_SERVER_ERROR`.
+
+#### `POST /fingerprints`
+
+**Headers:** `X-CSRF-Token`, `X-Fingerprint`
+
+**Request**
+
+```json
+{ "deviceId": "front_gate", "name": "Juan" }
+```
+
+`name` is trimmed and must be 1–40 characters.
+
+**Response `202`** — the new `FingerprintJob` (`type: "ENROLL"`, `status: "PENDING"`, `slot` = lowest free slot 1–127). Also broadcast over SSE. Progress and the result arrive later as SSE `fingerprint` events.
+
+**Response `409`** — `FINGERPRINT_JOB_IN_PROGRESS` (another job is `PENDING`/`SENT`), `FINGERPRINT_NAME_TAKEN` (case-insensitive match on this device), or `FINGERPRINT_SLOTS_FULL` (all 127 slots used).
+
+**Response `400`** — `UNKNOWN_DEVICE_ID`, `VALIDATION_ERROR`, `INVALID_BODY`. **`401`** — session errors. **`500`** — `FINGERPRINT_SERVER_ERROR`.
+
+#### `PATCH /fingerprints/:id`
+
+**Headers:** `X-CSRF-Token`, `X-Fingerprint`
+
+**Request**
+
+```json
+{ "name": "Juan D." }
+```
+
+**Response `200`** — the updated `Fingerprint`. Database only; the ESP32 is not involved. Past access events keep the name they were recorded with.
+
+**Response `404`** — `FINGERPRINT_NOT_FOUND`. **`409`** — `FINGERPRINT_NAME_TAKEN`. **`400`** — `VALIDATION_ERROR`, `INVALID_BODY`. **`401`** — session errors. **`500`** — `FINGERPRINT_SERVER_ERROR`.
+
+#### `DELETE /fingerprints/:id`
+
+**Headers:** `X-CSRF-Token`, `X-Fingerprint`
+
+**Response `202`** — the new `FingerprintJob` (`type: "DELETE"`, `status: "PENDING"`, `fingerprintId` = `:id`). The person stays listed until the ESP32 confirms the wipe.
+
+**Response `404`** — `FINGERPRINT_NOT_FOUND`. **`409`** — `FINGERPRINT_JOB_IN_PROGRESS`. **`401`** — session errors. **`500`** — `FINGERPRINT_SERVER_ERROR`.
+
 #### `GET /door/stream?fingerprint=<fingerprint>`
 
 **Auth:** session cookie (`sid`) sent automatically by the browser; `fingerprint` query param carries the device fingerprint (since `EventSource` cannot send `X-Fingerprint`). Validated by `authenticateSse` — same hash compare as REST, **no CSRF** on this read-only GET. Note: this `fingerprint` is the browser fingerprint used for session binding, unrelated to the physical fingerprint sensor on the door hardware.
 
 **Response:** `text/event-stream`
 
-Each event:
+Two named events share the one connection:
 
 ```
 event: access
-data: {"id":"uuid","deviceId":"front_gate","deviceLabel":"Front Gate","outcome":"GRANTED","fingerprintSlot":1,"timestamp":"2026-08-05T02:30:00.000Z"}
+data: {"id":"uuid","deviceId":"front_gate","deviceLabel":"Front Gate","outcome":"GRANTED","fingerprintSlot":1,"fingerprintName":"Juan","timestamp":"2026-08-05T02:30:00.000Z"}
+
+event: fingerprint
+data: {"job":{"id":"uuid","type":"ENROLL","status":"SENT","step":"PLACE_AGAIN",...},"fingerprint":null}
 ```
 
-SSE payload shape matches `AccessEvent`.
+`access` payloads match `AccessEvent`. `fingerprint` payloads match `FingerprintJobEvent` and are sent when a job is created, delivered to the ESP32, reports a step, finishes, or expires.
 
 **Connection:** the server writes a `: connected` comment immediately on open so the client and any proxy see bytes right away. Auth is checked once, at connect; an already-open stream is not closed when the session expires or the user logs out (consistent with §6.4 — no server-side revocation).
 
@@ -388,14 +587,15 @@ CSRF protection: `X-CSRF-Token` header must match the `csrfToken` cookie on all 
 - Compare keys with **constant-time** equality.
 - **HTTPS required** in production — ESP32 must use TLS.
 - **Known MVP limitation:** a single shared key can assert any configured `deviceId` and `outcome`. Acceptable for this single-device school project; HTTPS and physical custody of the device are the controls — there is no debounce or rate limit on this endpoint.
-- `GET /door/commands` reuses this same API key control — no separate auth mechanism for command polling.
+- `GET /door/commands` and `POST /door/jobs/:jobId/progress` reuse this same API key control — no separate auth mechanism for command polling or progress reports.
 
 **Backend environment variables introduced by the door features** (see `Backend-hono/.env.example`):
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `DEVICE_API_KEY` | — (required) | Shared secret the ESP32 sends as `X-API-Key` |
-| `UNLOCK_COMMAND_TTL_SECONDS` | `60` | How long a pending manual unlock stays valid (see §6.6) |
+| `UNLOCK_COMMAND_TTL_SECONDS` | `60` | How long a pending manual unlock or fingerprint job stays valid before the ESP32 picks it up (see §6.6, §6.10) |
+| `FINGERPRINT_JOB_TIMEOUT_SECONDS` | `120` | How long a delivered fingerprint job may run before it is marked `FAILED` / `DEVICE_TIMEOUT` (see §6.10) |
 | `SSE_HEARTBEAT_SECONDS` | `25` | Interval of the `: ping` comment on `GET /door/stream` |
 
 #### 6.6 Admin unlock delivery
@@ -425,8 +625,15 @@ Fingerprint in the SSE URL increases exposure via server logs and browser histor
 | `INVALID_BODY` | 400 | Request body missing or not valid JSON |
 | `VALIDATION_ERROR` | 400 | Input failed schema validation (including a JSON body that is not an object); field details in `error.issues` |
 | `SESSION_UNAUTHORIZED` | 401 | Missing session cookie, missing/mismatched CSRF token, fingerprint mismatch, or user no longer exists |
-| `UNKNOWN_DEVICE_ID` | 400 | `deviceId` is missing or not a configured device (`/door/unlock`, `/door/access`, `/door/commands`) |
-| `DEVICE_UNAUTHORIZED` | 401 | Missing or invalid `X-API-Key` on a device endpoint (`/door/access`, `/door/commands`) |
+| `UNKNOWN_DEVICE_ID` | 400 | `deviceId` is missing or not a configured device (`/door/*`, `/fingerprints`) |
+| `DEVICE_UNAUTHORIZED` | 401 | Missing or invalid `X-API-Key` on a device endpoint (`/door/access`, `/door/commands`, `/door/jobs/:jobId/progress`) |
+| `FINGERPRINT_NOT_FOUND` | 404 | No enrolled person with that id (`PATCH`/`DELETE /fingerprints/:id`) |
+| `FINGERPRINT_NAME_TAKEN` | 409 | Another person on this device already has that name (case-insensitive) |
+| `FINGERPRINT_SLOTS_FULL` | 409 | All 127 sensor slots are in use |
+| `FINGERPRINT_JOB_IN_PROGRESS` | 409 | A fingerprint job is already `PENDING`/`SENT` for this device |
+| `FINGERPRINT_JOB_NOT_FOUND` | 404 | Progress reported for a job id that doesn't exist on this device |
+| `FINGERPRINT_JOB_NOT_ACTIVE` | 409 | Progress reported for a job that is no longer `SENT` |
+| `FINGERPRINT_SERVER_ERROR` | 500 | Reading or writing fingerprints/jobs failed |
 | `TOKEN_EXPIRED` | 401 | Session JWT is past its `exp` |
 | `TOKEN_INVALID` | 401 | Session JWT is malformed, has a bad signature, or the wrong issuer |
 | `DOOR_UNLOCK_SERVER_ERROR` | 500 | Writing the pending unlock from `POST /door/unlock` failed |
@@ -440,15 +647,20 @@ Fingerprint in the SSE URL increases exposure via server logs and browser histor
 
 All errors use the `ApiError` shape from §2: `{ "error": { "code", "message", "field?", "data?", "issues?" } }`. The frontend switches on `error.code`. Only `VALIDATION_ERROR` includes `issues`, as `[{ "path": "username", "message": "..." }]`. Unmatched routes return `404 NOT_FOUND` in the same envelope.
 
-#### 6.10 Fingerprint enrollment (outside the API)
+#### 6.10 Fingerprint management (dashboard-driven)
 
-Enrolling a finger is a **local, offline** operation on the device and has no API surface:
+- Enrollment and deletion are started from the dashboard and executed by the ESP32 through the existing poll channel. The sensor scans the same finger twice, merges the scans into one template, and stores it in the assigned slot (`storeModel(slot)`); deletion wipes the slot (`deleteModel(slot)`). The OLED shows the prompts; the buzzer/LEDs confirm the result.
+- Templates never leave the sensor. PostgreSQL holds only slot ↔ name.
+- **Trust level:** any authenticated dashboard session can enroll or remove a person — the same protection as `POST /door/unlock`, which can already open the door. Enrolling still requires the person to be physically at the sensor to scan.
+- **One active job per device.** A second enroll/delete request while one is `PENDING`/`SENT` returns `409 FINGERPRINT_JOB_IN_PROGRESS`.
+- **Slot choice:** the backend assigns the lowest slot 1–127 not used by a `fingerprints` row on that device. The admin never chooses a slot.
+- **Expiry, computed on read** (in `GET /fingerprints`, `GET /door/commands`, and before creating a job) — no background timer:
+  - `PENDING` older than `UNLOCK_COMMAND_TTL_SECONDS` → `EXPIRED` (the ESP32 was offline). Prevents a stale request from starting an enrollment hours later.
+  - `SENT` with no final report within `FINGERPRINT_JOB_TIMEOUT_SECONDS` → `FAILED` / `DEVICE_TIMEOUT` (the ESP32 lost power or WiFi mid-flow). The ESP32's own per-step timeout (20s) is well inside this.
+  - Each transition is broadcast as an SSE `fingerprint` event.
+- No access event is ever generated by enrollment or deletion — they are not access attempts.
+- **One-time migration:** fingers enrolled over USB before this feature are unknown to the database. Wipe the sensor once with the `wipe-fingerprints` firmware env, then re-enroll from the dashboard (see [[Hardware Setup Guide]]).
 
-- The owner connects a laptop to the ESP32 over USB-serial, physically present, and runs the enrollment routine in the firmware. It scans the same finger twice, merges the scans into one template, and stores it in a numbered slot on the sensor's onboard flash (e.g. `storeModel(slot)` in the Adafruit_Fingerprint library). The OLED shows the prompts; the buzzer/LEDs confirm the result.
-- No endpoint, no `accessEvents` row, no SSE event, and no database write — enrollment is not an access attempt.
-- The backend only ever learns a slot number later, as `fingerprintSlot` on a `GRANTED` event. Mapping slots to people is kept by the owner offline.
-- Because enrollment needs USB-serial access, physical custody of the device is the control; there is no remote enrollment path.
-
-See [[System Documentation#5. Fingerprint Enrollment]].
+See [[System Documentation#5. Fingerprint Management]].
 
 **Related Docs: [[System Documentation]] & [[System Design Documentation]] & [[Wireframe & Flows]] & [[API Contract]]**

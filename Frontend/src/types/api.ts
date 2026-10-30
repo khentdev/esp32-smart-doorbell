@@ -25,7 +25,43 @@ export type AccessEventDTO = {
   deviceLabel: string // e.g. "Front Gate"
   outcome: AccessOutcome
   fingerprintSlot: number | null // sensor slot; set only when outcome is "GRANTED"
+  fingerprintName: string | null // enrolled person's name at scan time; null if not GRANTED or not enrolled
   timestamp: IsoDateString // server-stamped
+}
+
+/** One enrolled person (one finger in one sensor slot). */
+export type FingerprintDTO = {
+  id: string // uuid
+  deviceId: DeviceId
+  name: string // 1–40 chars, unique per device (case-insensitive)
+  slot: number // 1–127, assigned by the backend
+  createdAt: IsoDateString
+}
+
+export type FingerprintJobType = 'ENROLL' | 'DELETE'
+export type FingerprintJobStatus = 'PENDING' | 'SENT' | 'SUCCEEDED' | 'FAILED' | 'EXPIRED'
+export type FingerprintJobStep = 'PLACE_FINGER' | 'REMOVE_FINGER' | 'PLACE_AGAIN'
+export type FingerprintJobError =
+  | 'MISMATCH' // the two scans didn't match
+  | 'TIMEOUT' // nobody placed a finger in time
+  | 'BAD_IMAGE' // the sensor couldn't read the finger
+  | 'STORE_FAILED' // the sensor couldn't save the template
+  | 'DELETE_FAILED' // the sensor couldn't wipe the slot
+  | 'DEVICE_TIMEOUT' // the ESP32 took the job but never reported back (set by the backend)
+
+/** One enroll/delete request travelling to the ESP32 and back. */
+export type FingerprintJobDTO = {
+  id: string // uuid
+  deviceId: DeviceId
+  type: FingerprintJobType
+  status: FingerprintJobStatus
+  step: FingerprintJobStep | null // last step the ESP32 reported
+  error: FingerprintJobError | null // set only when status is "FAILED"
+  name: string // the person's name, for display
+  slot: number
+  fingerprintId: string | null // DELETE only
+  createdAt: IsoDateString
+  updatedAt: IsoDateString
 }
 
 // ---------- Headers ----------
@@ -88,11 +124,54 @@ export type DoorStreamQuery = {
   fingerprint: string // same string as X-Fingerprint, URL-encoded
 }
 
-/** The only named SSE event. `data` is JSON of AccessEventDTO. */
+/** Named SSE event `access`. `data` is JSON of AccessEventDTO. */
 export type AccessStreamEvent = {
   event: 'access'
   data: AccessEventDTO
 }
+
+/** Named SSE event `fingerprint`, sent on every fingerprint job change. */
+export type FingerprintJobEventDTO = {
+  job: FingerprintJobDTO
+  fingerprint: FingerprintDTO | null // the new person, only on a SUCCEEDED ENROLL
+}
+
+export type FingerprintStreamEvent = {
+  event: 'fingerprint'
+  data: FingerprintJobEventDTO
+}
+
+// ---------- GET /fingerprints ----------
+
+export type ListFingerprintsQuery = {
+  deviceId: DeviceId
+}
+
+export type ListFingerprintsResponse = {
+  fingerprints: FingerprintDTO[] // oldest first
+  activeJob: FingerprintJobDTO | null // PENDING or SENT job, if any
+}
+
+// ---------- POST /fingerprints ----------
+
+export type EnrollFingerprintRequest = {
+  deviceId: DeviceId
+  name: string
+}
+
+export type EnrollFingerprintResponse = FingerprintJobDTO // type "ENROLL", status "PENDING"
+
+// ---------- PATCH /fingerprints/:id ----------
+
+export type RenameFingerprintRequest = {
+  name: string
+}
+
+export type RenameFingerprintResponse = FingerprintDTO
+
+// ---------- DELETE /fingerprints/:id ----------
+
+export type DeleteFingerprintResponse = FingerprintJobDTO // type "DELETE", status "PENDING"
 
 // ---------- GET /healthz ----------
 
@@ -116,9 +195,16 @@ export type PollCommandQuery = {
   deviceId: DeviceId
 }
 
-export type PollDeviceCommandResponse = {
-  command: 'UNLOCK' | null
-}
+export type PollDeviceCommandResponse =
+  | { command: null }
+  | { command: 'UNLOCK' }
+  | { command: 'ENROLL' | 'DELETE'; jobId: string; slot: number }
+
+export type ReportJobProgressRequest =
+  | { deviceId: DeviceId; step: FingerprintJobStep | 'SUCCEEDED' }
+  | { deviceId: DeviceId; step: 'FAILED'; error: Exclude<FingerprintJobError, 'DEVICE_TIMEOUT'> }
+
+export type ReportJobProgressResponse = FingerprintJobDTO
 
 // ---------- Errors ----------
 
@@ -140,6 +226,14 @@ export type ApiErrorCode =
   | 'DOOR_UNLOCK_SERVER_ERROR'
   | 'POLL_DEVICE_ERROR'
   | 'ACCESS_EVENT_SERVER_ERROR'
+  // fingerprints
+  | 'FINGERPRINT_NOT_FOUND'
+  | 'FINGERPRINT_NAME_TAKEN'
+  | 'FINGERPRINT_SLOTS_FULL'
+  | 'FINGERPRINT_JOB_IN_PROGRESS'
+  | 'FINGERPRINT_JOB_NOT_FOUND'
+  | 'FINGERPRINT_JOB_NOT_ACTIVE'
+  | 'FINGERPRINT_SERVER_ERROR'
   // dashboard
   | 'DASHBOARD_SUMMARY_ERROR'
   // generic

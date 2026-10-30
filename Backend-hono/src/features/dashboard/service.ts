@@ -37,6 +37,7 @@ export async function getDashboardSummaryService(
         : row.deviceId,
       outcome: row.outcome,
       fingerprintSlot: row.fingerprintSlot ?? null,
+      fingerprintName: row.fingerprintName ?? null,
       timestamp: new Date(row.timestamp).toISOString(),
     }));
 

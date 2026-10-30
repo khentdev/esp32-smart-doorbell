@@ -1,0 +1,430 @@
+<title>Smart Door Wiring</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<style>
+/* Layout: one wide point-to-point wiring card (no breadboard; junction blocks replace the rails), legend chips above, rules + connection table below. */
+:root {
+  --bg: #f4f6f8; --fg: #15191e; --muted: #5a6370; --line: #d8dde3; --card: #ffffff;
+  --accent: #0d7a63; --accent-ink: #ffffff;
+  --jb: #dfe3e8; --jb-edge: #9aa3ae; --lever: #f08c00;
+  --w5: #d7263d; --w33: #d99100; --wgnd: #1c1f23; --wsig: #2160e0; --w12: #a3239f; --wdiode: #6b7280;
+  --pcb-esp: #1a2433; --pcb-blue: #1f4f8f; --pcb-dark: #2a2d33; --pin: #d4a72c; --pin-off: #6b7480; --on-pcb: #f1f3f5;
+  --font-body: "IBM Plex Sans", system-ui, sans-serif;
+  --font-head: "IBM Plex Sans Condensed", "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f1215; --fg: #e6e9ed; --muted: #98a1ac; --line: #29303a; --card: #161a1f;
+  --accent: #3cc4a4; --accent-ink: #062019;
+  --jb: #39414b; --jb-edge: #5d6774; --lever: #f5a02a;
+  --w5: #ff5b6b; --w33: #f5b730; --wgnd: #c5cbd3; --wsig: #5d8dff; --w12: #e366e6; --wdiode: #9aa3ae;
+  color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --bg: #0f1215; --fg: #e6e9ed; --muted: #98a1ac; --line: #29303a; --card: #161a1f;
+  --accent: #3cc4a4; --accent-ink: #062019;
+  --jb: #39414b; --jb-edge: #5d6774; --lever: #f5a02a;
+  --w5: #ff5b6b; --w33: #f5b730; --wgnd: #c5cbd3; --wsig: #5d8dff; --w12: #e366e6; --wdiode: #9aa3ae;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-block: 28px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 22px; }
+h1 { font-family: var(--font-head); font-size: clamp(26px, 4vw, 36px); margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+h2 { font-family: var(--font-head); font-size: 20px; margin: 0 0 10px; }
+.lede { margin: 4px 0 0; color: var(--muted); max-width: 70ch; }
+code, .mono { font-family: var(--font-mono); font-size: 0.92em; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { font: 500 13px var(--font-mono); border: 1px solid var(--line); background: var(--card); color: var(--fg);
+  border-radius: 999px; padding: 6px 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+.chip i { width: 18px; height: 4px; border-radius: 2px; display: inline-block; }
+.chip[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.chip:focus-visible, tr:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; }
+.diagram { overflow-x: auto; padding: 8px; }
+.diagram svg { display: block; width: 100%; min-width: 980px; height: auto; }
+.info { min-height: 1.6em; font-family: var(--font-mono); font-size: 13px; color: var(--muted); padding: 0 4px; }
+.info b { color: var(--fg); font-weight: 600; }
+.cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.8fr); gap: 22px; align-items: start; }
+@media (max-width: 860px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+.rules { padding: 18px 20px; }
+.rules ol { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
+.rules strong { font-weight: 600; }
+.table-card { padding: 18px 20px; min-width: 0; }
+.tscroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+th { text-align: left; font: 600 11px var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
+  padding: 6px 8px; border-bottom: 1px solid var(--line); }
+td { padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+td.join { font-family: var(--font-mono); font-size: 12.5px; }
+tr.row { cursor: pointer; }
+tr.row:hover td { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+tr.row.sel td { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+tr.grp td { font: 600 12px var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); padding-top: 16px; }
+.sw { display: inline-block; width: 22px; height: 4px; border-radius: 2px; vertical-align: middle; }
+td.note { color: var(--muted); }
+/* SVG */
+.t { font-family: var(--font-mono); fill: var(--fg); }
+.tm { font-family: var(--font-mono); fill: var(--muted); }
+.tp { font-family: var(--font-mono); fill: var(--on-pcb); }
+.th { font-family: var(--font-head); fill: var(--on-pcb); font-weight: 600; }
+.wire { transition: opacity .15s; }
+.wire .halo { stroke: var(--card); }
+svg.filtering .wire:not(.hl) { opacity: 0.12; }
+svg.filtering .wire.hl path.c { stroke-width: 4.5; }
+.part { cursor: pointer; }
+.jb { fill: var(--jb); stroke: var(--jb-edge); stroke-width: 1.2; }
+.lv { fill: var(--lever); }
+@media (prefers-reduced-motion: reduce) { .wire { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Smart Door Wiring</h1>
+    <p class="lede">Every part of the smart door wired point to point, with no breadboard. Lever connectors (or terminal strips) take the place of the power rails: one for logic 5V, one for servo 5V, and two ground blocks bridged together. Pins match <code>firmware/include/pins.h</code> and the Hardware Setup Guide. Click a part, a colour below, or a table row to highlight just those wires.</p>
+  </header>
+
+  <div class="chips" role="group" aria-label="Highlight wires">
+    <button class="chip" data-g="all" aria-pressed="true">All wires</button>
+    <button class="chip" data-g="logic" aria-pressed="false"><i style="background:var(--w5)"></i>Logic power</button>
+    <button class="chip" data-g="servo" aria-pressed="false"><i style="background:var(--w5)"></i>Servo power</button>
+    <button class="chip" data-g="gnd" aria-pressed="false"><i style="background:var(--wgnd)"></i>Ground</button>
+    <button class="chip" data-g="signal" aria-pressed="false"><i style="background:var(--wsig)"></i>Signals</button>
+    <button class="chip" data-g="v12" aria-pressed="false"><i style="background:var(--w12)"></i>12V lock circuit</button>
+  </div>
+
+  <div class="card diagram">
+    <svg id="bb" viewBox="0 0 1280 900" role="img" aria-label="Point-to-point wiring diagram for the ESP32 smart door, without a breadboard">
+      <!-- 12V zone -->
+      <rect x="730" y="14" width="536" height="222" rx="10" fill="none" stroke="var(--w12)" stroke-dasharray="6 5" stroke-width="1.5"/>
+      <text class="t" x="1256" y="229" font-size="11" text-anchor="end" style="fill:var(--w12)">12V SIDE · keep away from the ESP32</text>
+
+      <g id="wires"></g>
+
+      <!-- Junction blocks (replace the breadboard rails) -->
+      <g class="part" data-part="j5">
+        <rect class="jb" x="300" y="268" width="90" height="28" rx="4"/>
+        <rect class="lv" x="309" y="273" width="12" height="9" rx="2"/><rect class="lv" x="339" y="273" width="12" height="9" rx="2"/><rect class="lv" x="369" y="273" width="12" height="9" rx="2"/>
+        <text class="t" x="294" y="281" font-size="10.5" font-weight="600" text-anchor="end" style="fill:var(--w5)">5V logic</text>
+        <text class="tm" x="294" y="293" font-size="8.5" text-anchor="end">3-port</text>
+      </g>
+      <g class="part" data-part="jg">
+        <rect class="jb" x="1056" y="290" width="38" height="180" rx="4"/>
+        <rect class="lv" x="1067" y="318" width="16" height="10" rx="2"/><rect class="lv" x="1067" y="346" width="16" height="10" rx="2"/><rect class="lv" x="1067" y="374" width="16" height="10" rx="2"/><rect class="lv" x="1067" y="402" width="16" height="10" rx="2"/><rect class="lv" x="1067" y="430" width="16" height="10" rx="2"/>
+        <text class="t" x="1102" y="306" font-size="10.5" font-weight="600">GND</text>
+        <text class="tm" x="1102" y="319" font-size="8.5">8-way strip</text>
+        <text class="tm" x="1102" y="331" font-size="8.5">(or 2× 5-port,</text>
+        <text class="tm" x="1102" y="343" font-size="8.5">bridged)</text>
+      </g>
+      <g class="part" data-part="js5">
+        <rect class="jb" x="300" y="740" width="80" height="26" rx="4"/>
+        <rect class="lv" x="310" y="745" width="12" height="8" rx="2"/><rect class="lv" x="334" y="745" width="12" height="8" rx="2"/><rect class="lv" x="358" y="745" width="12" height="8" rx="2"/>
+        <text class="t" x="340" y="733" font-size="10.5" font-weight="600" text-anchor="middle" style="fill:var(--w5)">Servo 5V · 3-port</text>
+      </g>
+      <g class="part" data-part="jsg">
+        <rect class="jb" x="300" y="800" width="80" height="26" rx="4"/>
+        <rect class="lv" x="306" y="809" width="10" height="8" rx="2"/><rect class="lv" x="321" y="809" width="10" height="8" rx="2"/><rect class="lv" x="336" y="809" width="10" height="8" rx="2"/><rect class="lv" x="351" y="809" width="10" height="8" rx="2"/><rect class="lv" x="366" y="809" width="10" height="8" rx="2"/>
+        <text class="t" x="390" y="842" font-size="10.5" font-weight="600">Servo GND · 5-port</text>
+      </g>
+      <g class="part" data-part="cap">
+        <line x1="330" y1="766" x2="330" y2="777" stroke="var(--wdiode)" stroke-width="1.6"/>
+        <line x1="330" y1="789" x2="330" y2="800" stroke="var(--wdiode)" stroke-width="1.6"/>
+        <rect x="320" y="777" width="20" height="12" rx="2" fill="none" stroke="var(--muted)" stroke-width="1.2" stroke-dasharray="3 2"/>
+        <text class="tm" x="350" y="791" font-size="8">470µF opt.</text>
+      </g>
+
+      <!-- ESP32 -->
+      <g class="part" data-part="esp32">
+        <rect x="405" y="488" width="22" height="39" rx="2" fill="#9aa3ae"/>
+        <rect x="425" y="420" width="375" height="180" rx="8" fill="var(--pcb-esp)"/>
+        <g id="espPins"></g>
+        <text class="th" x="612" y="506" font-size="16" text-anchor="middle">ESP32 DevKit</text>
+        <text class="tp" x="612" y="524" font-size="10" text-anchor="middle" opacity=".8">← USB to laptop (power + upload)</text>
+      </g>
+
+      <!-- Relay -->
+      <g class="part" data-part="relay">
+        <rect x="470" y="60" width="240" height="130" rx="6" fill="var(--pcb-blue)"/>
+        <rect x="490" y="104" width="90" height="46" rx="3" fill="#2f6fc0" stroke="#7fa8dd" stroke-width="1"/>
+        <text class="th" x="485" y="84" font-size="15">Relay module</text>
+        <text class="tp" x="485" y="99" font-size="10" opacity=".85">use channel 1</text>
+        <text class="tp" x="520" y="182" font-size="10" text-anchor="middle">VCC</text>
+        <text class="tp" x="555" y="182" font-size="10" text-anchor="middle">GND</text>
+        <text class="tp" x="590" y="182" font-size="10" text-anchor="middle">IN1</text>
+        <text class="tp" x="695" y="89" font-size="10" text-anchor="end">NO1</text>
+        <text class="tp" x="695" y="114" font-size="10" text-anchor="end">COM1</text>
+        <text class="tp" x="695" y="139" font-size="10" text-anchor="end" opacity=".6">NC1 unused</text>
+        <rect x="703" y="79" width="14" height="12" fill="#3a8a3a"/><rect x="703" y="104" width="14" height="12" fill="#3a8a3a"/><rect x="703" y="129" width="14" height="12" fill="#3a8a3a"/>
+      </g>
+
+      <!-- Solenoid, diode, barrel -->
+      <g class="part" data-part="solenoid">
+        <rect x="880" y="30" width="140" height="40" rx="5" fill="var(--pcb-dark)"/>
+        <text class="tp" x="950" y="54" font-size="11" text-anchor="middle">Solenoid lock</text>
+      </g>
+      <g class="part" data-part="solenoid">
+        <polygon points="935,105 965,96 965,114" fill="var(--wdiode)"/>
+        <line x1="935" y1="96" x2="935" y2="114" stroke="var(--fg)" stroke-width="3"/>
+        <text class="t" x="950" y="89" font-size="9.5" text-anchor="middle">1N4007 · stripe on NO1 side</text>
+      </g>
+      <g class="part" data-part="barrel">
+        <rect x="1080" y="150" width="180" height="55" rx="5" fill="var(--pcb-dark)"/>
+        <text class="tp" x="1170" y="191" font-size="10.5" text-anchor="middle">12V adapter → barrel jack</text>
+        <text class="tp" x="1120" y="168" font-size="13" text-anchor="middle">+</text>
+        <text class="tp" x="1210" y="168" font-size="13" text-anchor="middle">−</text>
+      </g>
+
+      <!-- Fingerprint -->
+      <g class="part" data-part="fp">
+        <rect x="20" y="330" width="180" height="160" rx="8" fill="var(--pcb-dark)"/>
+        <circle cx="78" cy="420" r="28" fill="#151719" stroke="#4b525b" stroke-width="2"/>
+        <text class="th" x="34" y="354" font-size="14">Fingerprint</text>
+        <text class="tp" x="34" y="369" font-size="9.5" opacity=".75">R307 / AS608</text>
+        <text class="tp" x="192" y="354" font-size="10" text-anchor="end">V+</text>
+        <text class="tp" x="192" y="399" font-size="10" text-anchor="end">TX</text>
+        <text class="tp" x="192" y="424" font-size="10" text-anchor="end">RX</text>
+        <text class="tp" x="192" y="449" font-size="10" text-anchor="end">GND</text>
+        <text class="tp" x="34" y="478" font-size="9" opacity=".75">Touch / 3.3VT: tape the ends</text>
+      </g>
+
+      <!-- Buzzer + LEDs (wired in-line, resistor soldered to the long leg) -->
+      <g class="part" data-part="buzzer">
+        <circle cx="900" cy="340" r="12" fill="var(--pcb-dark)"/><circle cx="900" cy="340" r="3" fill="#555"/>
+        <text class="t" x="900" y="322" font-size="10" text-anchor="middle">buzzer</text>
+      </g>
+      <g class="part" data-part="ledr">
+        <rect x="850" y="361" width="30" height="8" rx="3" fill="#cdb68a" stroke="#8a7650"/>
+        <line x1="880" y1="365" x2="895" y2="365" stroke="var(--wsig)" stroke-width="2"/>
+        <polygon points="895,358 895,372 909,365" fill="#e23b3b"/><line x1="910" y1="358" x2="910" y2="372" stroke="#e23b3b" stroke-width="2"/>
+        <text class="tm" x="865" y="380" font-size="8.5" text-anchor="middle">220Ω</text>
+      </g>
+      <g class="part" data-part="ledg">
+        <rect x="850" y="386" width="30" height="8" rx="3" fill="#cdb68a" stroke="#8a7650"/>
+        <line x1="880" y1="390" x2="895" y2="390" stroke="var(--wsig)" stroke-width="2"/>
+        <polygon points="895,383 895,397 909,390" fill="#22a447"/><line x1="910" y1="383" x2="910" y2="397" stroke="#22a447" stroke-width="2"/>
+        <text class="tm" x="865" y="405" font-size="8.5" text-anchor="middle">220Ω</text>
+        <text class="t" x="930" y="410" font-size="9" text-anchor="middle">red · green</text>
+      </g>
+
+      <!-- OLED -->
+      <g class="part" data-part="oled">
+        <rect x="880" y="615" width="120" height="100" rx="5" fill="var(--pcb-blue)"/>
+        <rect x="912" y="628" width="68" height="44" fill="#06080a"/>
+        <text class="th" x="946" y="692" font-size="12" text-anchor="middle">OLED</text>
+        <text class="tp" x="946" y="704" font-size="8.5" text-anchor="middle" opacity=".8">SSD1306</text>
+        <text class="tp" x="884" y="643" font-size="8">SCL</text>
+        <text class="tp" x="884" y="668" font-size="8">SDA</text>
+        <text class="tp" x="884" y="693" font-size="8">VCC</text>
+        <text class="tp" x="996" y="643" font-size="8" text-anchor="end">GND</text>
+      </g>
+
+      <!-- Servo -->
+      <g class="part" data-part="servo">
+        <rect x="560" y="790" width="160" height="78" rx="6" fill="var(--pcb-dark)"/>
+        <text class="th" x="640" y="830" font-size="14" text-anchor="middle">MG996R servo</text>
+        <text class="tp" x="640" y="848" font-size="9" text-anchor="middle" opacity=".75">brown · red · orange</text>
+      </g>
+
+      <!-- USB charger cable -->
+      <g class="part" data-part="charger">
+        <line x1="150" y1="792" x2="200" y2="792" stroke="#8b939e" stroke-width="16" stroke-linecap="round"/>
+        <rect x="30" y="770" width="120" height="44" rx="4" fill="#5d6570"/>
+        <text class="th" x="90" y="797" font-size="13" text-anchor="middle">USB-A plug</text>
+        <text class="t" x="30" y="834" font-size="10">→ wall charger, 5V ≥2A</text>
+        <text class="tm" x="160" y="770" font-size="9.5">Type-C end cut off</text>
+      </g>
+
+      <g id="dots"></g>
+    </svg>
+  </div>
+  <div class="info" id="info" aria-live="polite">Showing all wires.</div>
+
+  <div class="cols">
+    <section class="card rules">
+      <h2>Before you power on</h2>
+      <ol>
+        <li><strong>Unplug everything</strong> while you wire.</li>
+        <li><strong>Never join the two 5V blocks.</strong> Logic 5V comes from the ESP32's VIN, servo 5V from the charger. Only the grounds are shared, through the link wire between the two GND blocks.</li>
+        <li><strong>12V stays away from the ESP32.</strong> Barrel + → relay COM1, relay NO1 → solenoid, solenoid → barrel −.</li>
+        <li>The <strong>diode's stripe</strong> goes on the wire coming from NO1.</li>
+        <li>Check the cut USB cable reads <strong>+5V on red</strong> with a multimeter before the servo goes on.</li>
+        <li>Solder each <strong>220Ω resistor to the LED's long leg</strong>, then cover the joint with heat-shrink. The short leg goes to the GND block.</li>
+        <li><strong>Insulate every joint</strong> and every unused wire end (fingerprint Touch / 3.3VT, cut USB wires).</li>
+        <li>Put servo and charger wires in a <strong>lever connector or screw terminal</strong>. Twisted bare wire works loose under the servo's current.</li>
+        <li>Pin order on your board and modules may differ from this drawing. <strong>Match the printed labels</strong>, not the positions.</li>
+        <li>Optional: a 470–1000µF capacitor between the servo 5V and servo GND blocks, striped leg to GND.</li>
+      </ol>
+    </section>
+    <section class="card table-card">
+      <h2>Every connection</h2>
+      <div class="tscroll"><table>
+        <thead><tr><th>From</th><th>To</th><th>Join</th><th></th><th>Note</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table></div>
+    </section>
+  </div>
+</div>
+
+<script>
+(() => {
+  const C = { w5: 'var(--w5)', w33: 'var(--w33)', gnd: 'var(--wgnd)', sig: 'var(--wsig)', w12: 'var(--w12)', d: 'var(--wdiode)' };
+  const GROUPS = { logic: 'Logic power', servo: 'Servo power', gnd: 'Ground', signal: 'Signals', v12: '12V lock circuit' };
+  const FF = 'F-F jumper', LV = 'lever connector';
+  // Draw order matters: later wires hop over earlier wires.
+  const W = [
+    // signals
+    { g: 'signal', c: 'sig', parts: ['esp32', 'relay'], from: 'ESP32 GPIO26', to: 'Relay IN1', join: FF, pts: [[590,432],[590,190]] },
+    { g: 'signal', c: 'sig', parts: ['esp32', 'buzzer'], from: 'ESP32 GPIO25', to: 'Buzzer +', join: 'F jumper on the leg', note: 'longer leg / marked +', pts: [[614,432],[614,340],[888,340]] },
+    { g: 'signal', c: 'sig', parts: ['esp32', 'ledr'], from: 'ESP32 GPIO33', to: '220Ω → red LED long leg', join: 'solder + heat-shrink', pts: [[638,432],[638,365],[850,365]] },
+    { g: 'signal', c: 'sig', parts: ['esp32', 'ledg'], from: 'ESP32 GPIO32', to: '220Ω → green LED long leg', join: 'solder + heat-shrink', pts: [[662,432],[662,390],[850,390]] },
+    { g: 'signal', c: 'sig', parts: ['esp32', 'fp'], from: 'Fingerprint TX', to: 'ESP32 GPIO16 (RX2)', join: FF, note: 'TX and RX cross', pts: [[200,395],[380,395],[380,625],[566,625],[566,588]] },
+    { g: 'signal', c: 'sig', parts: ['esp32', 'fp'], from: 'Fingerprint RX', to: 'ESP32 GPIO17 (TX2)', join: FF, note: 'TX and RX cross', pts: [[200,420],[360,420],[360,640],[590,640],[590,588]] },
+    { g: 'signal', c: 'sig', parts: ['esp32', 'oled'], from: 'ESP32 GPIO22', to: 'OLED SCL', join: FF, pts: [[758,588],[758,640],[880,640]] },
+    { g: 'signal', c: 'sig', parts: ['esp32', 'oled'], from: 'ESP32 GPIO21', to: 'OLED SDA', join: FF, pts: [[686,588],[686,665],[880,665]] },
+    { g: 'signal', c: 'sig', parts: ['esp32', 'servo'], from: 'ESP32 GPIO18', to: 'Servo orange', join: 'F-M jumper into servo plug', note: 'signal only', pts: [[638,588],[638,790]] },
+    // logic power
+    { g: 'logic', c: 'w5', parts: ['esp32', 'j5'], from: 'ESP32 VIN (5V)', to: '5V logic block', join: LV, pts: [[446,432],[446,340],[375,340],[375,296]] },
+    { g: 'logic', c: 'w5', parts: ['fp', 'j5'], from: 'Fingerprint V+', to: '5V logic block', join: LV, note: 'use 3V3 only if your sensor says 3.3V', pts: [[200,350],[315,350],[315,296]] },
+    { g: 'logic', c: 'w5', parts: ['relay', 'j5'], from: 'Relay VCC', to: '5V logic block', join: LV, pts: [[520,190],[520,240],[345,240],[345,268]] },
+    { g: 'logic', c: 'w33', parts: ['esp32', 'oled'], from: 'ESP32 3V3', to: 'OLED VCC', join: FF, note: '3.3V, not 5V', pts: [[446,588],[446,690],[880,690]] },
+    // ground
+    { g: 'gnd', c: 'gnd', parts: ['esp32', 'jg'], from: 'ESP32 GND (VIN side)', to: 'GND block', join: LV, pts: [[470,432],[470,262],[1068,262],[1068,290]] },
+    { g: 'gnd', c: 'gnd', parts: ['relay', 'jg'], from: 'Relay GND', to: 'GND block', join: LV, pts: [[555,190],[555,248],[1082,248],[1082,290]] },
+    { g: 'gnd', c: 'gnd', parts: ['buzzer', 'jg'], from: 'Buzzer −', to: 'GND block', join: LV, pts: [[912,340],[1056,340]] },
+    { g: 'gnd', c: 'gnd', parts: ['ledr', 'jg'], from: 'Red LED short leg', to: 'GND block', join: LV, pts: [[910,365],[1056,365]] },
+    { g: 'gnd', c: 'gnd', parts: ['ledg', 'jg'], from: 'Green LED short leg', to: 'GND block', join: LV, pts: [[910,390],[1056,390]] },
+    { g: 'gnd', c: 'gnd', parts: ['oled', 'jg'], from: 'OLED GND', to: 'GND block', join: LV, pts: [[1000,640],[1068,640],[1068,470]] },
+    { g: 'gnd', c: 'gnd', parts: ['esp32', 'fp'], from: 'Fingerprint GND', to: 'ESP32 GND (3V3 side)', join: FF, note: 'both ESP32 GND pins are joined on the board', pts: [[200,445],[340,445],[340,610],[470,610],[470,588]] },
+    { g: 'gnd', c: 'gnd', parts: ['jsg', 'jg', 'servo', 'charger'], from: 'Servo GND block', to: 'GND block', join: LV, note: 'common ground link, required', pts: [[340,826],[340,884],[1140,884],[1140,455],[1094,455]] },
+    // servo power
+    { g: 'servo', c: 'w5', parts: ['charger', 'js5'], from: 'Charger cable red', to: 'Servo 5V block', join: LV, note: 'check +5V with a multimeter first', pts: [[200,786],[260,786],[260,753],[300,753]] },
+    { g: 'servo', c: 'gnd', parts: ['charger', 'jsg'], from: 'Charger cable black', to: 'Servo GND block', join: LV, pts: [[200,798],[270,798],[270,813],[300,813]] },
+    { g: 'servo', c: 'w5', parts: ['servo', 'js5'], from: 'Servo red', to: 'Servo 5V block', join: 'M pin into ' + LV, pts: [[612,790],[612,753],[380,753]] },
+    { g: 'servo', c: 'gnd', parts: ['servo', 'jsg'], from: 'Servo brown', to: 'Servo GND block', join: 'M pin into ' + LV, pts: [[590,790],[590,780],[400,780],[400,813],[380,813]] },
+    // 12V
+    { g: 'v12', c: 'w12', parts: ['barrel', 'relay'], from: 'Barrel +', to: 'Relay COM1', join: 'screw terminal', pts: [[1120,150],[1120,135],[750,135],[750,110],[710,110]] },
+    { g: 'v12', c: 'w12', parts: ['relay', 'solenoid'], from: 'Relay NO1', to: 'Solenoid wire A', join: 'screw terminal', pts: [[710,85],[800,85],[800,50],[880,50]] },
+    { g: 'v12', c: 'gnd', parts: ['solenoid', 'barrel'], from: 'Solenoid wire B', to: 'Barrel −', join: 'barrel screw terminal', pts: [[1020,50],[1210,50],[1210,150]] },
+    { g: 'v12', c: 'd', parts: ['solenoid'], from: 'Diode stripe (cathode)', to: 'Solenoid wire A', join: 'solder + heat-shrink', note: '1N4007 across the solenoid', pts: [[935,105],[860,105],[860,50]], junction: [860,50] },
+    { g: 'v12', c: 'd', parts: ['solenoid'], from: 'Diode plain end (anode)', to: 'Solenoid wire B', join: 'solder + heat-shrink', pts: [[965,105],[1040,105],[1040,50]], junction: [1040,50] },
+  ];
+  // Junction blocks and other parts with no wire of their own.
+  const PL = [
+    { part: 'j5', what: '5V logic block', join: '3-port lever connector', note: 'ESP32 VIN, fingerprint V+, relay VCC' },
+    { part: 'jg', what: 'GND block', join: '8-way terminal strip', note: 'ESP32 GND, relay, buzzer, both LEDs, OLED, link from servo GND' },
+    { part: 'js5', what: 'Servo 5V block', join: '3-port lever connector', note: 'charger red, servo red, capacitor +' },
+    { part: 'jsg', what: 'Servo GND block', join: '5-port lever connector', note: 'charger black, servo brown, capacitor −, link to GND block' },
+    { part: 'cap', what: '470–1000µF capacitor', join: 'between the servo blocks', note: 'optional, striped leg to servo GND' },
+  ];
+
+  const R = 6, NS = 'http://www.w3.org/2000/svg';
+  const el = (n, a, p) => { const e = document.createElementNS(NS, n); for (const k in a) e.setAttribute(k, a[k]); p && p.appendChild(e); return e; };
+  const between = (v, a, b) => v > Math.min(a, b) + 0.5 && v < Math.max(a, b) - 0.5;
+
+  const segs = [];
+  function pathFor(pts) {
+    let d = `M${pts[0][0]},${pts[0][1]}`;
+    const mine = [];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [x1, y1] = pts[i], [x2, y2] = pts[i + 1], h = y1 === y2;
+      const hops = [];
+      for (const s of segs) {
+        if (h && !s.h && between(s.x, x1, x2) && between(y1, s.a, s.b)) hops.push(s.x);
+        if (!h && s.h && between(s.y, y1, y2) && between(x1, s.a, s.b)) hops.push(s.y);
+      }
+      const dir = h ? Math.sign(x2 - x1) : Math.sign(y2 - y1);
+      hops.sort((p, q) => (p - q) * dir);
+      const sweep = dir > 0 ? 1 : 0;
+      for (const p of hops) {
+        if (h) d += ` L${p - R * dir},${y1} A${R},${R} 0 0 ${sweep} ${p + R * dir},${y1}`;
+        else d += ` L${x1},${p - R * dir} A${R},${R} 0 0 ${sweep} ${x1},${p + R * dir}`;
+      }
+      d += ` L${x2},${y2}`;
+      mine.push(h ? { h: true, y: y1, a: x1, b: x2 } : { h: false, x: x1, a: y1, b: y2 });
+    }
+    segs.push(...mine);
+    return d;
+  }
+
+  const wiresG = document.getElementById('wires'), dotsG = document.getElementById('dots');
+  W.forEach((w, i) => {
+    const g = el('g', { class: 'wire', 'data-i': i }, wiresG);
+    const d = pathFor(w.pts);
+    el('path', { d, class: 'halo', fill: 'none', 'stroke-width': 8, 'stroke-linejoin': 'round' }, g);
+    el('path', { d, class: 'c', fill: 'none', stroke: C[w.c], 'stroke-width': 3.2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, g);
+    for (const p of [w.pts[0], w.pts[w.pts.length - 1], w.junction].filter(Boolean))
+      el('circle', { cx: p[0], cy: p[1], r: 3.6, fill: C[w.c], class: 'wire', 'data-i': i }, dotsG);
+    w.node = g;
+  });
+
+  // ESP32 pin headers (USB end on the left)
+  const TOP = ['VIN','GND','13','12','14','27','26','25','33','32','35','34','VN','VP','EN'];
+  const BOT = ['3V3','GND','15','2','4','16','17','5','18','19','21','RX0','TX0','22','23'];
+  const usedTop = new Set(['VIN','GND','26','25','33','32']), usedBot = new Set(['3V3','GND','16','17','18','21','22']);
+  const pinsG = document.getElementById('espPins');
+  TOP.forEach((n, i) => {
+    const x = 446 + i * 24, on = usedTop.has(n);
+    el('rect', { x: x - 4, y: 428, width: 8, height: 8, rx: 1.5, fill: on ? 'var(--pin)' : 'var(--pin-off)' }, pinsG);
+    const t = el('text', { x, y: 450, 'font-size': 8.5, 'text-anchor': 'middle', class: 'tp', opacity: on ? 1 : .5, 'font-weight': on ? 600 : 400 }, pinsG); t.textContent = n;
+  });
+  BOT.forEach((n, i) => {
+    const x = 446 + i * 24, on = usedBot.has(n);
+    el('rect', { x: x - 4, y: 584, width: 8, height: 8, rx: 1.5, fill: on ? 'var(--pin)' : 'var(--pin-off)' }, pinsG);
+    const t = el('text', { x, y: 577, 'font-size': 8.5, 'text-anchor': 'middle', class: 'tp', opacity: on ? 1 : .5, 'font-weight': on ? 600 : 400 }, pinsG); t.textContent = n;
+  });
+
+  // Table
+  const tbody = document.getElementById('rows');
+  const grp = label => { const tr = document.createElement('tr'); tr.className = 'grp'; tr.innerHTML = `<td colspan="5">${label}</td>`; tbody.appendChild(tr); };
+  grp('Junction blocks');
+  PL.forEach((p, i) => {
+    const r = document.createElement('tr'); r.className = 'row'; r.tabIndex = 0; r.dataset.p = i;
+    r.innerHTML = `<td>${p.what}</td><td></td><td class="join">${p.join}</td><td></td><td class="note">${p.note}</td>`;
+    tbody.appendChild(r); p.row = r;
+  });
+  for (const g of Object.keys(GROUPS)) {
+    grp(GROUPS[g]);
+    W.forEach((w, i) => {
+      if (w.g !== g) return;
+      const r = document.createElement('tr'); r.className = 'row'; r.tabIndex = 0; r.dataset.i = i;
+      r.innerHTML = `<td>${w.from}</td><td>${w.to}</td><td class="join">${w.join}</td><td><span class="sw" style="background:${C[w.c]}"></span></td><td class="note">${w.note || ''}</td>`;
+      tbody.appendChild(r); w.row = r;
+    });
+  }
+
+  // Highlighting
+  const svg = document.getElementById('bb'), info = document.getElementById('info');
+  const chips = [...document.querySelectorAll('.chip')];
+  function apply(match, label, part) {
+    const any = !!match;
+    svg.classList.toggle('filtering', any);
+    svg.querySelectorAll('.wire').forEach(n => n.classList.toggle('hl', any && match(W[+n.dataset.i], +n.dataset.i)));
+    W.forEach((w, i) => w.row.classList.toggle('sel', any && match(w, i)));
+    PL.forEach(p => p.row.classList.toggle('sel', !!part && p.part === part));
+    info.innerHTML = label;
+  }
+  function setChip(g) { chips.forEach(c => c.setAttribute('aria-pressed', String(c.dataset.g === g))); }
+  chips.forEach(c => c.addEventListener('click', () => {
+    const g = c.dataset.g; setChip(g);
+    if (g === 'all') apply(null, 'Showing all wires.');
+    else apply(w => w.g === g, `Highlighting <b>${GROUPS[g]}</b>.`);
+  }));
+  const NAMES = { esp32: 'ESP32', relay: 'Relay module', solenoid: 'Solenoid + diode', barrel: '12V adapter', fp: 'Fingerprint sensor', buzzer: 'Buzzer', ledr: 'Red LED', ledg: 'Green LED', oled: 'OLED', servo: 'Servo', charger: 'USB charger cable',
+    j5: '5V logic block', jg: 'GND block', js5: 'Servo 5V block', jsg: 'Servo GND block', cap: 'Optional capacitor' };
+  const pickPart = k => {
+    setChip(null);
+    const n = W.filter(w => w.parts.includes(k)).length;
+    apply(w => w.parts.includes(k), `<b>${NAMES[k]}</b>: ${n} wire${n === 1 ? '' : 's'}. Click a colour chip or “All wires” to reset.`, k);
+  };
+  svg.querySelectorAll('.part').forEach(p => p.addEventListener('click', () => pickPart(p.dataset.part)));
+  const pick = r => {
+    if (r.dataset.p !== undefined) return pickPart(PL[+r.dataset.p].part);
+    const i = +r.dataset.i, w = W[i]; setChip(null);
+    apply((_, j) => j === i, `<b>${w.from}</b> → <b>${w.to}</b> · ${w.join}${w.note ? ' · ' + w.note : ''}`);
+  };
+  tbody.addEventListener('click', e => { const r = e.target.closest('tr.row'); r && pick(r); });
+  tbody.addEventListener('keydown', e => { const r = e.target.closest('tr.row'); if (r && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); pick(r); } });
+  svg.addEventListener('click', e => { if (e.target.closest('.part')) return; const n = e.target.closest('.wire'); if (n) pick(W[+n.dataset.i].row); });
+})();
+</script>
